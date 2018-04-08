@@ -1,0 +1,12 @@
+*[ ] mem
+*[ ] file - log
+*[ ] file - tree
+*[ ] file - k/v
+
+*[ ] multi connections share same node with same session, HA
+*[ ] gossip: node discovery & link state probe
+*[ ] enhanced store: 1. kv, 2. range, 3. value history, 4. watch key, 5. sessioned key, 6. event, 7. semaphore
+*[ ] scheduled task support
+*[ ] transaction coordinator
+*[ ] dispatch tasks
+*[ ] shard observe - dc->dc
