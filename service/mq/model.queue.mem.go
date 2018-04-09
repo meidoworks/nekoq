@@ -91,10 +91,12 @@ func (this *MemQueue) BatchObtain(record *QueueRecord, maxCnt int, ctx *Ctx) (Ba
 		return result, nil
 	case AtLeastOnce:
 		//TODO inflight retry interval
-		//TODO
+		//TODO 1. pump in-flight
+		//TODO 2. pump messageChannel and put into in-flight map
 	case ExactlyOnce:
 		//TODO inflight retry interval
-		//TODO
+		//TODO 1. pump in-flight
+		//TODO 2. pump messageChannel and put into in-flight map
 	}
 }
 
@@ -102,6 +104,7 @@ func (this *MemQueue) ConfirmConsumed(record *QueueRecord, ack *Ack) error {
 	if this.DeliveryLevel == AtMostOnce {
 		return ErrDeliveryLevelIllegalOperation
 	}
+	//TODO delete in-flight map
 }
 
 func (this *MemQueue) Init(queue *Queue, option *QueueOption) error {
