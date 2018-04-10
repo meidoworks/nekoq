@@ -104,7 +104,14 @@ func (this *MemQueue) ConfirmConsumed(record *QueueRecord, ack *Ack) error {
 	if this.DeliveryLevel == AtMostOnce {
 		return ErrDeliveryLevelIllegalOperation
 	}
-	//TODO delete in-flight map
+	//TODO need support record
+	// delete in-flight map
+	inflightMap := this.InflightMessageMap
+	this.InflightMessageLock.Lock()
+	for _, v := range ack.AckIdList {
+		delete(inflightMap, v.MsgId)
+	}
+	this.InflightMessageLock.Unlock()
 }
 
 func (this *MemQueue) Init(queue *Queue, option *QueueOption) error {

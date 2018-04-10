@@ -67,6 +67,7 @@ func (this *Broker) deleteSubscribeGroup(subscribeGroupId IdType) error {
 }
 
 func (this *SubscribeGroup) Loop(record *QueueRecord, queue *Queue) {
+	//TODO support qos
 	out := this.SubCh
 	for {
 		result, err := queue.BatchObtain(record, 1024, nil)
