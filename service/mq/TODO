@@ -1,0 +1,16 @@
+
+
+
+TODO:
+1. delete components
+2. unbind components
+3. close broker, queue, subscribeGroup
+4. publish context
+5. persistent queue
+6. reliable memory queue
+
+TODO:
+store to support following features: topic name -> topic id, tag expressions -> tags
+wildcard topic: client convert topics to topicIds
+queue tag: client convert && / || expression to || tags
+
