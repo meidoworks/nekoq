@@ -80,6 +80,10 @@ func (this *Broker) deleteTopic(topicId IdType) error {
 	return nil
 }
 
+func (this *Topic) PreQueue(req *Request) {
+	//TODO
+}
+
 func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 	tags := req.Header.Tags
 	queueList := this.queueList
@@ -95,6 +99,8 @@ func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 			return err
 		}
 	}
+
+	this.PreQueue(req)
 
 	m := make(map[int32]*Queue)
 	for _, q := range queueList {
@@ -152,6 +158,8 @@ func (this *Topic) PublishMessageWithResponse(req *Request, ctx *Ctx) (Ack, erro
 		}
 		msgIds[i] = msgId
 	}
+
+	this.PreQueue(req)
 
 	m := make(map[int32]*Queue)
 	for _, q := range queueList {
