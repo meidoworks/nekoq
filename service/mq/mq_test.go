@@ -194,8 +194,10 @@ func TestPrintBrokerTime(t *testing.T) {
 			go func() {
 				ch := sub.SubCh
 				for {
-					_ = <-ch
-					wg.Done()
+					elem := <-ch
+					for _ = range elem.Request.BatchMessage {
+						wg.Done()
+					}
 				}
 			}()
 		},
@@ -206,6 +208,9 @@ func TestPrintBrokerTime(t *testing.T) {
 	msg := mq.Request{
 		Header: mq.Header{
 			TopicId: TOPIC_ID,
+		},
+		BatchMessage: []mq.Message{
+			mq.Message{},
 		},
 	}
 	err = publishGroup.PublishMessage(&msg, &mq.Ctx{})
@@ -222,7 +227,7 @@ func TestPrintBrokerTime(t *testing.T) {
 	t.Log("queue2", queue2)
 	t.Log("broker:", broker)
 
-	var CNT = 50000000
+	var CNT = 4000000
 
 	wg.Add(CNT)
 

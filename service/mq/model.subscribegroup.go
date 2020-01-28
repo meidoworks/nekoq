@@ -50,9 +50,11 @@ func (this *Broker) addSubscribeGroup(subscribeGroup *SubscribeGroup) error {
 	c := make(chan map[IdType]*SubscribeGroup)
 	go func() {
 		newMap := make(map[IdType]*SubscribeGroup)
+		// copy old kv
 		for k, v := range this.subscribeGroup {
 			newMap[k] = v
 		}
+		// add new
 		newMap[subscribeGroup.subscribeGroupID] = subscribeGroup
 
 		c <- newMap
@@ -70,9 +72,10 @@ func (this *SubscribeGroup) Loop(record *QueueRecord, queue *Queue) {
 	//TODO support qos
 	out := this.SubCh
 	for {
-		result, err := queue.BatchObtain(record, 1024, nil)
+		result, err := queue.BatchObtain(record, 16, nil)
 		if err != nil {
 			//TODO handle error
+			logError("subscribeGroup loop error while batchObtain:", err)
 			return
 		}
 		for _, v := range result.Requests {

@@ -130,6 +130,6 @@ func (this *MemQueue) Init(queue *Queue, option *QueueOption) error {
 		this.PrePubMapWithOutId = make(map[IdType]Message)
 		this.InflightMessageMap = make(map[IdType]Message)
 	}
-	this.MessageChannel = make(chan Message, 1024)
+	this.MessageChannel = make(chan Message, option.QueueChannelSize)
 	return nil
 }

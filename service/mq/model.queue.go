@@ -112,9 +112,11 @@ func (this *Broker) addQueue(queue *Queue) error {
 	c := make(chan map[IdType]*Queue)
 	go func() {
 		newMap := make(map[IdType]*Queue)
+		// copy old kv
 		for k, v := range this.queueMap {
 			newMap[k] = v
 		}
+		// add new
 		newMap[queue.QueueID] = queue
 
 		c <- newMap
@@ -151,66 +153,4 @@ type QueueType interface {
 
 type BatchObtainResult struct {
 	Requests []*Request
-}
-
-type SimpleQueue struct {
-	queue                *Queue
-	InitBatchObtainCount int
-	MaxBatchObtainCount  int
-
-	QueueInboundChannel chan *Request
-}
-
-func (this *SimpleQueue) PublishMessage(reg *Request, ctx *Ctx) error {
-	this.QueueInboundChannel <- reg
-	return nil
-}
-
-func (this *SimpleQueue) CommitMessages(reg *MessageCommit, ctx *Ctx) error {
-	//TODO
-	return nil
-}
-
-func (this *SimpleQueue) BatchObtain(record *QueueRecord, maxCnt int, ctx *Ctx) (BatchObtainResult, error) {
-	capacity := this.InitBatchObtainCount
-	reqs := make([]*Request, capacity)
-	idx := 0
-	ch := this.QueueInboundChannel
-LOOP:
-	for idx < capacity {
-		select {
-		case r := <-ch:
-			reqs[idx] = r
-			idx++
-		default:
-			if idx == 0 {
-				r := <-ch
-				reqs[idx] = r
-				idx++
-				continue LOOP
-			} else {
-				break LOOP
-			}
-		}
-	}
-	return BatchObtainResult{
-		Requests: reqs[:idx],
-	}, nil
-}
-
-func (this *SimpleQueue) Init(queue *Queue, option *QueueOption) error {
-	this.InitBatchObtainCount = queue.InitBatchObtainCount
-	this.MaxBatchObtainCount = queue.MaxBatchObtainCount
-	this.QueueInboundChannel = make(chan *Request, option.QueueInboundChannelSize)
-	this.queue = queue
-	//run("queue_loop", this.Loop)
-	return nil
-}
-
-func (this *SimpleQueue) CreateRecord(ctx *Ctx) (*QueueRecord, error) {
-	return nil, nil
-}
-
-func (this *SimpleQueue) ConfirmConsumed(record *QueueRecord, ack *Ack) error {
-	return nil
 }

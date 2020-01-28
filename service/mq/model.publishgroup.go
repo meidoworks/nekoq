@@ -32,9 +32,11 @@ func (this *Broker) addPublishGroup(publishGroup *PublishGroup) error {
 	c := make(chan map[IdType]*PublishGroup)
 	go func() {
 		newMap := make(map[IdType]*PublishGroup)
+		// copy old kv
 		for k, v := range this.publishGroupMap {
 			newMap[k] = v
 		}
+		// add new
 		newMap[publishGroup.publishGroupID] = publishGroup
 
 		c <- newMap

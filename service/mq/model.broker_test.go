@@ -31,7 +31,7 @@ func TestBroker_GenNewInternalTopicId(t *testing.T) {
 		t.Log(r1, r2, r3)
 	}
 
-	for {
+	for i := 0; i < 10000000; i++ {
 		_, err = broker.GenNewInternalTopicId()
 		if err == ErrTopicInternalIdExceeded {
 			break

@@ -10,6 +10,13 @@ func TestStartTime(t *testing.T) {
 	t.Log(idgen.Next())
 	t.Log(idgen.Next())
 	t.Log(idgen.Next())
+	i1, err := idgen.Next()
+	assertError(t, err)
+	i2, err := idgen.Next()
+	assertError(t, err)
+	if i1 == i2 {
+		t.Fatal("id should not equals")
+	}
 }
 
 func BenchmarkIdGen_Next(b *testing.B) {
