@@ -25,4 +25,6 @@ var (
 
 	ErrReplyTypeUnknown         = errors.New("reply type unknown")
 	ErrReplyDestinationNotExist = errors.New("reply destination not exist")
+
+	ErrUnsupportedOperation = errors.New("unsupported operation")
 )

@@ -93,10 +93,14 @@ func (this *MemQueue) BatchObtain(record *QueueRecord, maxCnt int, ctx *Ctx) (Ba
 		//TODO inflight retry interval
 		//TODO 1. pump in-flight
 		//TODO 2. pump messageChannel and put into in-flight map
+		return BatchObtainResult{}, ErrUnsupportedOperation
 	case ExactlyOnce:
 		//TODO inflight retry interval
 		//TODO 1. pump in-flight
 		//TODO 2. pump messageChannel and put into in-flight map
+		return BatchObtainResult{}, ErrUnsupportedOperation
+	default:
+		return BatchObtainResult{}, ErrUnsupportedOperation
 	}
 }
 
@@ -112,6 +116,7 @@ func (this *MemQueue) ConfirmConsumed(record *QueueRecord, ack *Ack) error {
 		delete(inflightMap, v.MsgId)
 	}
 	this.InflightMessageLock.Unlock()
+	return nil
 }
 
 func (this *MemQueue) Init(queue *Queue, option *QueueOption) error {
