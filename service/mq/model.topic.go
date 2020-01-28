@@ -82,6 +82,7 @@ func (this *Broker) deleteTopic(topicId IdType) error {
 
 func (this *Topic) PreQueue(req *Request) {
 	//TODO
+	//TODO features: pre-persistent, status check callback
 }
 
 func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
@@ -102,15 +103,18 @@ func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 
 	this.PreQueue(req)
 
-	m := make(map[int32]*Queue)
-	for _, q := range queueList {
-		//m[q.QueueInternalId] = q
-		err := q.PublishMessage(req, ctx)
-		if err != nil {
-			return err
+	if len(tags) == 0 {
+		// all queues
+		for _, q := range queueList {
+			//m[q.QueueInternalId] = q
+			err := q.PublishMessage(req, ctx)
+			if err != nil {
+				return err
+			}
 		}
-	}
-	if len(tags) != 0 {
+	} else {
+		// specified queues
+		m := make(map[int32]*Queue)
 		queueMap := this.queueMap
 		for _, tag := range tags {
 			queue, ok := queueMap[tag]

@@ -140,7 +140,6 @@ func (this *Broker) BindSubscribeGroupToQueue(subscribeGroupId, queueId IdType) 
 
 	_, ok = sg.queueMap[queueId]
 	if !ok {
-		//TODO support load last record
 		record, err := queue.CreateRecord(sg.subscribeGroupID, nil)
 		if err != nil {
 			return err

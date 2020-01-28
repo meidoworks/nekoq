@@ -1,6 +1,9 @@
 package mq
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type SgQMap struct {
 	q  *Queue
@@ -71,12 +74,22 @@ func (this *Broker) deleteSubscribeGroup(subscribeGroupId IdType) error {
 func (this *SubscribeGroup) Loop(record *QueueRecord, queue *Queue) {
 	//TODO support qos
 	out := this.SubCh
+	errCnt := 0
 	for {
 		result, err := queue.BatchObtain(record, 16, nil)
 		if err != nil {
-			//TODO handle error
 			logError("subscribeGroup loop error while batchObtain:", err)
-			return
+			if result.Requests == nil || len(result.Requests) == 0 {
+				// fall through and process messages
+			} else {
+				// handle error: retry and limit retry
+				errCnt++
+				if errCnt > 10 {
+					time.Sleep(100 * time.Millisecond)
+					errCnt = 0
+				}
+				continue
+			}
 		}
 		for _, v := range result.Requests {
 			out <- SubChanElem{

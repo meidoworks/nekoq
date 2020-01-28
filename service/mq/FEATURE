@@ -1,0 +1,14 @@
+components:
+1. publish group
+2. topic
+3. queue
+4. subscribe group
+5. node
+6. broker
+7. bind
+
+features:
+1. memory queue
+2. publish - at most once
+
+

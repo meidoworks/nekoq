@@ -322,8 +322,10 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 			go func() {
 				ch := sub.SubCh
 				for {
-					_ = <-ch
-					wg.Done()
+					elem := <-ch
+					for _ = range elem.Request.BatchMessage {
+						wg.Done()
+					}
 				}
 			}()
 		},
