@@ -22,11 +22,14 @@ type SubscribeGroup struct {
 	queueMap  map[IdType]SgQMap
 	basicLock sync.Mutex
 
+	obtainFailRetryInterval int // milliseconds, default 100ms
+
 	SubCh chan SubChanElem
 }
 
 type SubscribeGroupOption struct {
-	SubscribeChannelSize int
+	SubscribeChannelSize    int
+	ObtainFailRetryInterval int // milliseconds, default 100ms
 }
 
 func (this *Broker) NewSubscribeGroup(subscribeGroupId IdType, option *SubscribeGroupOption) (*SubscribeGroup, error) {
@@ -34,6 +37,11 @@ func (this *Broker) NewSubscribeGroup(subscribeGroupId IdType, option *Subscribe
 	sg.subscribeGroupID = subscribeGroupId
 	sg.queueMap = make(map[IdType]SgQMap)
 	sg.SubCh = make(chan SubChanElem, option.SubscribeChannelSize)
+	if option.ObtainFailRetryInterval <= 0 {
+		sg.obtainFailRetryInterval = 100
+	} else {
+		sg.obtainFailRetryInterval = option.ObtainFailRetryInterval
+	}
 	err := this.addSubscribeGroup(sg)
 	if err != nil {
 		return nil, err
@@ -75,6 +83,7 @@ func (this *SubscribeGroup) Loop(record *QueueRecord, queue *Queue) {
 	//TODO support qos
 	out := this.SubCh
 	errCnt := 0
+	obtainFailRetryInterval := this.obtainFailRetryInterval
 	for {
 		result, err := queue.BatchObtain(record, 16, nil)
 		if err != nil {
@@ -84,8 +93,8 @@ func (this *SubscribeGroup) Loop(record *QueueRecord, queue *Queue) {
 			} else {
 				// handle error: retry and limit retry
 				errCnt++
-				if errCnt > 10 {
-					time.Sleep(100 * time.Millisecond)
+				if errCnt > 3 {
+					time.Sleep(time.Duration(obtainFailRetryInterval) * time.Millisecond)
 					errCnt = 0
 				}
 				continue
@@ -103,8 +112,12 @@ func (this *SubscribeGroup) Loop(record *QueueRecord, queue *Queue) {
 
 // qos - at least once - ack
 // qos - exactly once - commit
-func (this *SubscribeGroup) Commit(queue *Queue, record *QueueRecord, ack *Ack) error {
-	return queue.ConfirmConsumed(record, ack)
+func (this *SubscribeGroup) Commit(queueId IdType, record *QueueRecord, ack *Ack) error {
+	queue, ok := this.queueMap[queueId]
+	if !ok {
+		return ErrQueueNotExist
+	}
+	return queue.q.ConfirmConsumed(record, ack)
 }
 
 func (this *SubscribeGroup) Join(node *Node) error {

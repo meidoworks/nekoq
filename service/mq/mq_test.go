@@ -323,8 +323,14 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 				ch := sub.SubCh
 				for {
 					elem := <-ch
-					for _ = range elem.Request.BatchMessage {
+					ack := &mq.Ack{AckIdList: []mq.MessageId{}}
+					for _, msg := range elem.Request.BatchMessage {
+						ack.AckIdList = append(ack.AckIdList, mq.MessageId{MsgId: msg.MsgId})
 						wg.Done()
+					}
+					err := sub.Commit(elem.Queue.QueueID, nil, ack)
+					if err != nil {
+						panic(err)
 					}
 				}
 			}()
@@ -362,7 +368,7 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 	t.Log("queue2", queue2)
 	t.Log("broker:", broker)
 
-	var CNT = 50000000
+	var CNT = 5000000
 
 	wg.Add(CNT)
 
@@ -374,6 +380,8 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 	wg.Wait()
 

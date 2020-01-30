@@ -6,9 +6,16 @@ components:
 5. node
 6. broker
 7. bind
+8. id generator
 
 features:
 1. memory queue
 2. publish - at most once
+3. PublishGuaranteeMessage/Commit - at least once
 
+behaviour:
+1. queue, subscribe group and subscriber
+  - queue : sg = 1 : N, independent queue record for every sg to consume queue messages
+  - sg : subscriber = 1 : N, consuming exclusive message
+2. topic and queue
 

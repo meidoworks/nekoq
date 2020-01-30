@@ -117,9 +117,9 @@ func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 		m := make(map[int32]*Queue)
 		queueMap := this.queueMap
 		for _, tag := range tags {
-			queue, ok := queueMap[tag]
+			queues, ok := queueMap[tag]
 			if ok {
-				for _, q := range queue {
+				for _, q := range queues {
 					id := q.QueueInternalId
 					_, ok := m[id]
 					if !ok {

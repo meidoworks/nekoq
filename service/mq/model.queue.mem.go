@@ -1,6 +1,9 @@
 package mq
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 var _ QueueType = new(MemQueue)
 
@@ -11,6 +14,9 @@ type MemQueue struct {
 	PrePubMapLock       sync.Mutex
 	InflightMessageMap  map[IdType]Message
 	InflightMessageLock sync.Mutex
+
+	RedeliverIntervalTime int
+	lastRedeliveryTime    time.Time
 
 	MessageChannel chan Message
 
@@ -90,10 +96,55 @@ func (this *MemQueue) BatchObtain(record *QueueRecord, maxCnt int, ctx *Ctx) (Ba
 		}
 		return result, nil
 	case AtLeastOnce:
-		//TODO inflight retry interval
-		//TODO 1. pump in-flight
-		//TODO 2. pump messageChannel and put into in-flight map
-		return BatchObtainResult{}, ErrUnsupportedOperation
+		ch := this.MessageChannel
+		result := BatchObtainResult{
+			Requests: []*Request{
+				{},
+			},
+		}
+		req := result.Requests[0]
+
+		cnt := 0
+
+		// check inflight messages
+		now := time.Now()
+		if now.Sub(this.lastRedeliveryTime) >= time.Duration(this.RedeliverIntervalTime)*time.Second {
+			// pump messages from inflight map
+			this.InflightMessageLock.Lock()
+			for k, v := range this.InflightMessageMap {
+				delete(this.InflightMessageMap, k)
+				req.BatchMessage = append(req.BatchMessage, v)
+				cnt++
+				if cnt >= maxCnt {
+					break
+				}
+			}
+			this.InflightMessageLock.Unlock()
+		}
+		this.lastRedeliveryTime = now
+
+		// pump messages from messageChannel
+	AT_LEAST_ONCE_LOOP:
+		for ; cnt < maxCnt; cnt++ {
+			select {
+			case msg := <-ch:
+				this.InflightMessageLock.Lock()
+				this.InflightMessageMap[msg.MsgId] = msg
+				this.InflightMessageLock.Unlock()
+				req.BatchMessage = append(req.BatchMessage, msg)
+			default:
+				if len(req.BatchMessage) == 0 {
+					msg := <-ch
+					this.InflightMessageLock.Lock()
+					this.InflightMessageMap[msg.MsgId] = msg
+					this.InflightMessageLock.Unlock()
+					req.BatchMessage = append(req.BatchMessage, msg)
+				} else {
+					break AT_LEAST_ONCE_LOOP
+				}
+			}
+		}
+		return result, nil
 	case ExactlyOnce:
 		//TODO inflight retry interval
 		//TODO 1. pump in-flight
@@ -108,14 +159,17 @@ func (this *MemQueue) ConfirmConsumed(record *QueueRecord, ack *Ack) error {
 	if this.DeliveryLevel == AtMostOnce {
 		return ErrDeliveryLevelIllegalOperation
 	}
+
 	//TODO need support record
-	// delete in-flight map
+
+	// in-flight map
 	inflightMap := this.InflightMessageMap
 	this.InflightMessageLock.Lock()
 	for _, v := range ack.AckIdList {
 		delete(inflightMap, v.MsgId)
 	}
 	this.InflightMessageLock.Unlock()
+
 	return nil
 }
 
@@ -126,6 +180,12 @@ func (this *MemQueue) Init(queue *Queue, option *QueueOption) error {
 	case AtMostOnce:
 	case AtLeastOnce:
 		this.InflightMessageMap = make(map[IdType]Message)
+		if option.RedeliverIntervalTime <= 0 {
+			this.RedeliverIntervalTime = 5
+		} else {
+			this.RedeliverIntervalTime = option.RedeliverIntervalTime
+		}
+		this.lastRedeliveryTime = time.Now()
 	case ExactlyOnce:
 		this.PrePubMapWithOutId = make(map[IdType]Message)
 		this.InflightMessageMap = make(map[IdType]Message)

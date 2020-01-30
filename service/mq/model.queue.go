@@ -33,6 +33,7 @@ type QueueOption struct {
 	QueueStoreType QueueStoreType
 
 	UncommittedMessageRetainTime int // in seconds, default 7 * 24 * 3600
+	RedeliverIntervalTime        int // in seconds, default 5 seconds
 
 	// custom queue type
 	CustomQueueTypeInst QueueType
