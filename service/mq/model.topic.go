@@ -137,8 +137,7 @@ func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 	return nil
 }
 
-// at least once and exactly once
-// omit dup flag
+// at least once
 func (this *Topic) PublishMessageWithResponse(req *Request, ctx *Ctx) (Ack, error) {
 	tags := req.Header.Tags
 	queueList := this.queueList
@@ -165,15 +164,82 @@ func (this *Topic) PublishMessageWithResponse(req *Request, ctx *Ctx) (Ack, erro
 
 	this.PreQueue(req)
 
-	m := make(map[int32]*Queue)
-	for _, q := range queueList {
-		//m[q.QueueInternalId] = q
-		err := q.PublishMessage(req, ctx)
+	if len(tags) == 0 {
+		// all queues
+		for _, q := range queueList {
+			//m[q.QueueInternalId] = q
+			err := q.PublishMessage(req, ctx)
+			if err != nil {
+				return EMPTY_MESSAGE_ID_LIST, err
+			}
+		}
+	} else {
+		// specified queues
+		m := make(map[int32]*Queue)
+		queueMap := this.queueMap
+		for _, tag := range tags {
+			queue, ok := queueMap[tag]
+			if ok {
+				for _, q := range queue {
+					id := q.QueueInternalId
+					_, ok := m[id]
+					if !ok {
+						m[q.QueueInternalId] = q
+						err := q.PublishMessage(req, ctx)
+						if err != nil {
+							return EMPTY_MESSAGE_ID_LIST, err
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return Ack{
+		AckIdList: msgIds,
+	}, nil
+}
+
+// exactly once
+// omit dup flag
+func (this *Topic) PrePublishMessage(req *Request, ctx *Ctx) (Ack, error) {
+	tags := req.Header.Tags
+	queueList := this.queueList
+
+	// generate message id
+	idgen := this.topicMessageIdGen
+	messages := req.BatchMessage
+	msgCnt := len(messages)
+	msgIds := make([]MessageId, msgCnt)
+	for i := 0; i < msgCnt; i++ {
+		var err error
+		var id IdType
+		id, err = idgen.Next()
 		if err != nil {
 			return EMPTY_MESSAGE_ID_LIST, err
 		}
+		messages[i].MsgId = id
+		msgId := MessageId{
+			MsgId: id,
+			OutId: messages[i].OutId,
+		}
+		msgIds[i] = msgId
 	}
-	if len(tags) != 0 {
+
+	this.PreQueue(req)
+
+	if len(tags) == 0 {
+		// all queues
+		for _, q := range queueList {
+			//m[q.QueueInternalId] = q
+			err := q.PublishMessage(req, ctx)
+			if err != nil {
+				return EMPTY_MESSAGE_ID_LIST, err
+			}
+		}
+	} else {
+		// specified queues
+		m := make(map[int32]*Queue)
 		queueMap := this.queueMap
 		for _, tag := range tags {
 			queue, ok := queueMap[tag]
@@ -204,15 +270,16 @@ func (this *Topic) CommitMessages(req *MessageCommit, ctx *Ctx) (Ack, error) {
 	tags := req.Header.Tags
 	queueList := this.queueList
 
-	m := make(map[int32]*Queue)
-	for _, q := range queueList {
-		//m[q.QueueInternalId] = q
-		err := q.CommitMessages(req, ctx)
-		if err != nil {
-			return EMPTY_MESSAGE_ID_LIST, err
+	if len(tags) == 0 {
+		for _, q := range queueList {
+			//m[q.QueueInternalId] = q
+			err := q.CommitMessages(req, ctx)
+			if err != nil {
+				return EMPTY_MESSAGE_ID_LIST, err
+			}
 		}
-	}
-	if len(tags) != 0 {
+	} else {
+		m := make(map[int32]*Queue)
 		queueMap := this.queueMap
 		for _, tag := range tags {
 			queue, ok := queueMap[tag]

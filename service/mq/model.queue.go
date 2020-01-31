@@ -143,11 +143,14 @@ type Subject struct {
 
 type QueueType interface {
 	PublishMessage(req *Request, ctx *Ctx) error
+	PrePublishMessage(req *Request, ctx *Ctx) error
 	CommitMessages(commit *MessageCommit, ctx *Ctx) error
 
 	CreateRecord(subscribeGroupId IdType, ctx *Ctx) (*QueueRecord, error)
 	BatchObtain(record *QueueRecord, maxCnt int, ctx *Ctx) (BatchObtainResult, error)
+	BatchObtainReleased(record *QueueRecord, maxCnt int, ctx *Ctx) (BatchObtainResult, error)
 	ConfirmConsumed(record *QueueRecord, ack *Ack) error
+	ReleaseConsumed(record *QueueRecord, ack *Ack) error
 
 	Init(queue *Queue, option *QueueOption) error
 }

@@ -5,10 +5,10 @@ import (
 	"log"
 )
 
-func logInfo(v ...interface{}) {
+func LogInfo(v ...interface{}) {
 	fmt.Println(v...)
 }
 
-func logError(v ...interface{}) {
+func LogError(v ...interface{}) {
 	log.Println(v...)
 }

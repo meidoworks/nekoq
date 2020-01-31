@@ -160,6 +160,9 @@ func (this *Broker) BindSubscribeGroupToQueue(subscribeGroupId, queueId IdType) 
 		run("subscribe_loop", func() {
 			sg.Loop(record, queue)
 		})
+		run("subscribe_release_loop", func() {
+			sg.ReleaseLoop(record, queue)
+		})
 	}
 	return nil
 }
