@@ -16,8 +16,9 @@ features:
 
 behaviour:
 1. queue, subscribe group and subscriber
-  - queue : sg = 1 : N, independent queue record for every sg to consume queue messages
+  - queue : sg = 1 : N, independent queue record for every sg keeping offset to consume queue messages
   - sg : queue = 1 : N, one subscribe group can subscribe multiple queues
-  - sg : subscriber = 1 : N, consuming exclusive message
+  - sg : subscriber = 1 : N, consuming message exclusively
 2. topic and queue
-
+  - topic : queue = 1 : N, pass each message to every queue via routing keys
+  - queue : topic = 1 : N, one queue can be linked to several topics

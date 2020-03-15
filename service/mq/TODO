@@ -14,3 +14,6 @@ store to support following features: topic name -> topic id, tag expressions -> 
 wildcard topic: client convert topics to topicIds
 queue tag: client convert && / || expression to || tags
 
+TODO:
+exceptional scenario:
+topic->multiple queues, if one or more queues failed
