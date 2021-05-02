@@ -33,3 +33,7 @@ _testmain.go
 
 # app dev prepare files
 /apps/**/import_gen.go
+
+# config files
+/*.toml
+

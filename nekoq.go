@@ -1,1 +1,1 @@
-package nekoq // "goimport.moetang.info/nekoq"
+package nekoq
