@@ -1,9 +1,10 @@
 package mqimpl
 
 import (
-	"github.com/meidoworks/nekoq/service/mqapi"
 	"sync"
 	"sync/atomic"
+
+	"github.com/meidoworks/nekoq/service/mqapi"
 )
 
 var _ mqapi.Broker = new(Broker)

@@ -1,9 +1,10 @@
 package mqimpl
 
 import (
-	"github.com/meidoworks/nekoq/service/mqapi"
 	"sync"
 	"time"
+
+	"github.com/meidoworks/nekoq/service/mqapi"
 )
 
 var _ mqapi.SubscribeGroup = new(SubscribeGroup)

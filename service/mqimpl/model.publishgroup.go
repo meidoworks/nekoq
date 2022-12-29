@@ -1,8 +1,9 @@
 package mqimpl
 
 import (
-	"github.com/meidoworks/nekoq/service/mqapi"
 	"sync"
+
+	"github.com/meidoworks/nekoq/service/mqapi"
 )
 
 var _ mqapi.PublishGroup = new(PublishGroup)

@@ -2,9 +2,10 @@ package mqext
 
 import (
 	"context"
-	"github.com/meidoworks/nekoq/service/mqapi"
 	"sync"
 	"time"
+
+	"github.com/meidoworks/nekoq/service/mqapi"
 )
 
 var _ mqapi.QueueType = new(MemQueue)

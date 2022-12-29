@@ -1,12 +1,13 @@
 package mq_test
 
 import (
-	"github.com/meidoworks/nekoq/service/mqapi"
-	"github.com/meidoworks/nekoq/service/mqimpl"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/service/mqimpl"
 
 	_ "github.com/meidoworks/nekoq/service/mq"
 )
