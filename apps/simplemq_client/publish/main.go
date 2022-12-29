@@ -9,7 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"goimport.moetang.info/nekoq/apps/simplemq_client/shared"
+	"github.com/meidoworks/nekoq/apps/simplemq_client/shared"
 )
 
 func main() {

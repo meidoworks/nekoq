@@ -7,7 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	"goimport.moetang.info/nekoq/service/simplemq"
+	"github.com/meidoworks/nekoq/service/simplemq"
 )
 
 type Config struct {

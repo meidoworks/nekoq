@@ -12,7 +12,7 @@ import (
 )
 
 import (
-	"goimport.moetang.info/nekoq/service/naming/impl/mem/tool"
+	"github.com/meidoworks/nekoq/service/naming/impl/mem/tool"
 )
 
 var (

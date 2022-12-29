@@ -6,10 +6,6 @@ import (
 	"io"
 )
 
-import (
-	"goimport.moetang.info/nekoq/util"
-)
-
 const (
 	LOG_ENTRY_TYPE_RECORD_START   byte = 1
 	LOG_ENTRY_TYPE_RECORD_COMMIT  byte = 2
@@ -26,9 +22,25 @@ type LogRecord struct {
 	Data      []byte
 }
 
+func Int32ToBytesBE(i int32) []byte {
+	panic("implement me")
+}
+
+func Int64ToBytesBE(i int64) []byte {
+	panic("implement me")
+}
+
+func BytesBigEndianToInt32(b []byte) (int32, error) {
+	panic("implement me")
+}
+
+func BytesBigEndianToInt64(b []byte) (int64, error) {
+	panic("implement me")
+}
+
 func (this *LogRecord) WriteTo(w *bufio.Writer) error {
 	l := 4 + 16 + len(this.Data)
-	_, err := w.Write(util.Int32ToBytesBE(int32(l)))
+	_, err := w.Write(Int32ToBytesBE(int32(l)))
 	if err != nil {
 		return err
 	}
@@ -37,11 +49,11 @@ func (this *LogRecord) WriteTo(w *bufio.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(util.Int64ToBytesBE(this.LogId[0]))
+	_, err = w.Write(Int64ToBytesBE(this.LogId[0]))
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(util.Int64ToBytesBE(this.LogId[1]))
+	_, err = w.Write(Int64ToBytesBE(this.LogId[1]))
 	if err != nil {
 		return err
 	}
@@ -64,7 +76,7 @@ func FromData(reader io.Reader) (*LogRecord, error, bool) {
 		}
 		return nil, err, false
 	}
-	length, err := util.BytesBigEndianToInt32(h[:4])
+	length, err := BytesBigEndianToInt32(h[:4])
 	if err != nil {
 		return nil, err, false
 	}
@@ -88,7 +100,7 @@ func FromData(reader io.Reader) (*LogRecord, error, bool) {
 	if err != nil {
 		return nil, err, false
 	}
-	i, err := util.BytesBigEndianToInt64(h[:])
+	i, err := BytesBigEndianToInt64(h[:])
 	if err != nil {
 		return nil, err, false
 	}
@@ -97,7 +109,7 @@ func FromData(reader io.Reader) (*LogRecord, error, bool) {
 	if err != nil {
 		return nil, err, false
 	}
-	i, err = util.BytesBigEndianToInt64(h[:])
+	i, err = BytesBigEndianToInt64(h[:])
 	if err != nil {
 		return nil, err, false
 	}

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"goimport.moetang.info/nekoq/service/naming/impl"
-	"goimport.moetang.info/nekoq/service/naming/impl/mem/tool"
+	"github.com/meidoworks/nekoq/service/naming/impl"
+	"github.com/meidoworks/nekoq/service/naming/impl/mem/tool"
 	"log"
 	"os"
 )
@@ -41,5 +41,5 @@ func main() {
 		log.Fatalln("create log error.", err)
 	}
 
-	logfile.WriteLogRecord()
+	logfile.WriteLogRecord(nil)
 }

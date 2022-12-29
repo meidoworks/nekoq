@@ -6,7 +6,7 @@ import (
 )
 
 import (
-	"goimport.moetang.info/nekoq/service/naming/impl"
+	"github.com/meidoworks/nekoq/service/naming/impl"
 )
 
 func TestIfNewLogWork(t *testing.T) {
