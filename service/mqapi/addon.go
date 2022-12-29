@@ -1,5 +1,7 @@
 package mqapi
 
+import "context"
+
 type RecordOffset IdType
 
 type QueueRecord struct {
@@ -18,4 +20,5 @@ type QueueType interface {
 	ReleaseConsumed(record *QueueRecord, ack *Ack) error
 
 	Init(queue Queue, option *QueueOption) error
+	Close(ctx context.Context) error
 }

@@ -1,6 +1,7 @@
 package mqext
 
 import (
+	"context"
 	"github.com/meidoworks/nekoq/service/mqapi"
 	"sync"
 	"time"
@@ -25,6 +26,11 @@ type MemQueue struct {
 	MessageChannel chan mqapi.Message
 
 	Queue mqapi.Queue
+}
+
+func (this *MemQueue) Close(ctx context.Context) error {
+	//TODO
+	return nil
 }
 
 func (this *MemQueue) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
