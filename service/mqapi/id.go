@@ -1,4 +1,4 @@
-package mq
+package mqapi
 
 import (
 	"errors"

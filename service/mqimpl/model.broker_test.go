@@ -1,6 +1,7 @@
-package mq
+package mqimpl
 
 import (
+	"github.com/meidoworks/nekoq/service/mqapi"
 	"testing"
 )
 
@@ -33,7 +34,7 @@ func TestBroker_GenNewInternalTopicId(t *testing.T) {
 
 	for i := 0; i < 10000000; i++ {
 		_, err = broker.GenNewInternalTopicId()
-		if err == ErrTopicInternalIdExceeded {
+		if err == mqapi.ErrTopicInternalIdExceeded {
 			break
 		}
 	}

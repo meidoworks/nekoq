@@ -1,12 +1,12 @@
-package mq_test
+package mqimpl_test
 
 import (
+	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/service/mqimpl"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
-
-	"goimport.moetang.info/nekoq/service/mq"
 )
 
 var TOPIC = "topic.demo"
@@ -22,52 +22,52 @@ var QUEUE2_ID = [2]int64{5, 0}
 var QUEUE2_TAG_ID = [2]int64{6, 0}
 
 func TestBuildBroker(t *testing.T) {
-	brokerOption := &mq.BrokerOption{
+	brokerOption := &mqimpl.BrokerOption{
 		NodeId: 1,
 	}
 
-	broker := mq.NewBroker(brokerOption)
+	broker := mqimpl.NewBroker(brokerOption)
 	broker.Start()
 
-	topicOption := &mq.TopicOption{}
-	queueOption := &mq.QueueOption{
+	topicOption := &mqapi.TopicOption{}
+	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
-		QueueStoreType:   mq.MEM_STORE,
+		QueueStoreType:   mqapi.MEM_STORE,
 	}
-	subOption := &mq.SubscribeGroupOption{
+	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
 	}
 
-	topic, err := broker.NewTopic(TOPIC_ID, topicOption)
+	topic, err := broker.DefineNewTopic(TOPIC_ID, topicOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue, err := topic.NewQueue(QUEUE_ID, queueOption)
+	queue, err := broker.DefineNewQueue(QUEUE_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	publishGroup, err := broker.NewPublishGroup(PUBLISH_GROUP_ID)
+	publishGroup, err := broker.DefineNewPublishGroup(PUBLISH_GROUP_ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	subscribeGroup, err := broker.NewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
+	subscribeGroup, err := broker.DefineNewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue2, err := topic.NewQueue(QUEUE2_ID, queueOption)
+	queue2, err := broker.DefineNewQueue(QUEUE2_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE_ID, nil)
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE_ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,10 +83,10 @@ func TestBuildBroker(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
-	node := &mq.Node{
-		InitFunc: func(sub *mq.SubscribeGroup) {
+	node := &mqimpl.Node{
+		InitFunc: func(sub mqapi.SubscribeGroup) {
 			go func() {
-				ch := sub.SubCh
+				ch := sub.SubscribeChannel()
 				for {
 					msg := <-ch
 					t.Log("receive:", msg)
@@ -99,15 +99,15 @@ func TestBuildBroker(t *testing.T) {
 
 	subscribeGroup.Join(node)
 
-	msg := mq.Request{
-		Header: mq.Header{
+	msg := mqapi.Request{
+		Header: mqapi.Header{
 			TopicId: TOPIC_ID,
 		},
-		BatchMessage: []mq.Message{
+		BatchMessage: []mqapi.Message{
 			{},
 		},
 	}
-	err = publishGroup.PublishMessage(&msg, &mq.Ctx{})
+	err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,52 +128,52 @@ func TestPrintBrokerTime(t *testing.T) {
 	t.Log(runtime.GOMAXPROCS(1))
 	defer runtime.GOMAXPROCS(preMaxProcs)
 
-	brokerOption := &mq.BrokerOption{
+	brokerOption := &mqimpl.BrokerOption{
 		NodeId: 1,
 	}
 
-	broker := mq.NewBroker(brokerOption)
+	broker := mqimpl.NewBroker(brokerOption)
 	broker.Start()
 
-	topicOption := &mq.TopicOption{}
-	queueOption := &mq.QueueOption{
+	topicOption := &mqapi.TopicOption{}
+	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
-		QueueStoreType:   mq.MEM_STORE,
+		QueueStoreType:   mqapi.MEM_STORE,
 	}
-	subOption := &mq.SubscribeGroupOption{
+	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
 	}
 
-	topic, err := broker.NewTopic(TOPIC_ID, topicOption)
+	topic, err := broker.DefineNewTopic(TOPIC_ID, topicOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue, err := topic.NewQueue(QUEUE_ID, queueOption)
+	queue, err := broker.DefineNewQueue(QUEUE_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	publishGroup, err := broker.NewPublishGroup(PUBLISH_GROUP_ID)
+	publishGroup, err := broker.DefineNewPublishGroup(PUBLISH_GROUP_ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	subscribeGroup, err := broker.NewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
+	subscribeGroup, err := broker.DefineNewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue2, err := topic.NewQueue(QUEUE2_ID, queueOption)
+	queue2, err := broker.DefineNewQueue(QUEUE2_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE_ID, nil)
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE_ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,10 +189,10 @@ func TestPrintBrokerTime(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
-	node := &mq.Node{
-		InitFunc: func(sub *mq.SubscribeGroup) {
+	node := &mqimpl.Node{
+		InitFunc: func(sub mqapi.SubscribeGroup) {
 			go func() {
-				ch := sub.SubCh
+				ch := sub.SubscribeChannel()
 				for {
 					elem := <-ch
 					for _ = range elem.Request.BatchMessage {
@@ -205,15 +205,15 @@ func TestPrintBrokerTime(t *testing.T) {
 
 	subscribeGroup.Join(node)
 
-	msg := mq.Request{
-		Header: mq.Header{
+	msg := mqapi.Request{
+		Header: mqapi.Header{
 			TopicId: TOPIC_ID,
 		},
-		BatchMessage: []mq.Message{
-			mq.Message{},
+		BatchMessage: []mqapi.Message{
+			mqapi.Message{},
 		},
 	}
-	err = publishGroup.PublishMessage(&msg, &mq.Ctx{})
+	err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestPrintBrokerTime(t *testing.T) {
 	var start = time.Now()
 
 	for i := 0; i < CNT; i++ {
-		err = publishGroup.PublishMessage(&msg, &mq.Ctx{})
+		err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -253,55 +253,55 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 	t.Log(runtime.GOMAXPROCS(1))
 	defer runtime.GOMAXPROCS(preMaxProcs)
 
-	brokerOption := &mq.BrokerOption{
+	brokerOption := &mqimpl.BrokerOption{
 		NodeId: 1,
 	}
 
-	broker := mq.NewBroker(brokerOption)
+	broker := mqimpl.NewBroker(brokerOption)
 	broker.Start()
 
-	topicOption := &mq.TopicOption{
-		DeliveryLevel: mq.AtLeastOnce,
+	topicOption := &mqapi.TopicOption{
+		DeliveryLevel: mqapi.AtLeastOnce,
 	}
-	queueOption := &mq.QueueOption{
+	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
-		DeliveryLevel:    mq.AtLeastOnce,
-		QueueStoreType:   mq.MEM_STORE,
+		DeliveryLevel:    mqapi.AtLeastOnce,
+		QueueStoreType:   mqapi.MEM_STORE,
 	}
-	subOption := &mq.SubscribeGroupOption{
+	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
 	}
 
-	topic, err := broker.NewTopic(TOPIC_ID, topicOption)
+	topic, err := broker.DefineNewTopic(TOPIC_ID, topicOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue, err := topic.NewQueue(QUEUE_ID, queueOption)
+	queue, err := broker.DefineNewQueue(QUEUE_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	publishGroup, err := broker.NewPublishGroup(PUBLISH_GROUP_ID)
+	publishGroup, err := broker.DefineNewPublishGroup(PUBLISH_GROUP_ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	subscribeGroup, err := broker.NewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
+	subscribeGroup, err := broker.DefineNewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue2, err := topic.NewQueue(QUEUE2_ID, queueOption)
+	queue2, err := broker.DefineNewQueue(QUEUE2_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE_ID, nil)
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE_ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,18 +317,18 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
-	node := &mq.Node{
-		InitFunc: func(sub *mq.SubscribeGroup) {
+	node := &mqimpl.Node{
+		InitFunc: func(sub mqapi.SubscribeGroup) {
 			go func() {
-				ch := sub.SubCh
+				ch := sub.SubscribeChannel()
 				for {
 					elem := <-ch
-					ack := &mq.Ack{AckIdList: []mq.MessageId{}}
+					ack := &mqapi.Ack{AckIdList: []mqapi.MessageId{}}
 					for _, msg := range elem.Request.BatchMessage {
-						ack.AckIdList = append(ack.AckIdList, mq.MessageId{MsgId: msg.MsgId})
+						ack.AckIdList = append(ack.AckIdList, mqapi.MessageId{MsgId: msg.MsgId})
 						wg.Done()
 					}
-					err := sub.Commit(elem.Queue.QueueID, nil, ack)
+					err := sub.Commit(elem.Queue.QueueId(), nil, ack)
 					if err != nil {
 						panic(err)
 					}
@@ -339,21 +339,21 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 
 	subscribeGroup.Join(node)
 
-	msg := mq.Request{
-		Header: mq.Header{
+	msg := mqapi.Request{
+		Header: mqapi.Header{
 			TopicId:       TOPIC_ID,
-			DeliveryLevel: mq.AtLeastOnce,
+			DeliveryLevel: mqapi.AtLeastOnce,
 		},
-		BatchMessage: []mq.Message{
+		BatchMessage: []mqapi.Message{
 			{
-				MessageId: mq.MessageId{
-					MsgId: mq.IdType{0, 0},
-					OutId: mq.IdType{1, 1},
+				MessageId: mqapi.MessageId{
+					MsgId: mqapi.MsgId{0, 0},
+					OutId: mqapi.OutId{1, 1},
 				},
 			},
 		},
 	}
-	ack, err := publishGroup.PublishGuaranteeMessage(&msg, &mq.Ctx{})
+	ack, err := publishGroup.PublishGuaranteeMessage(&msg, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +375,7 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 	var start = time.Now()
 
 	for i := 0; i < CNT; i++ {
-		_, err = publishGroup.PublishGuaranteeMessage(&msg, &mq.Ctx{})
+		_, err = publishGroup.PublishGuaranteeMessage(&msg, &mqapi.Ctx{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -396,55 +396,55 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 	t.Log(runtime.GOMAXPROCS(1))
 	defer runtime.GOMAXPROCS(preMaxProcs)
 
-	brokerOption := &mq.BrokerOption{
+	brokerOption := &mqimpl.BrokerOption{
 		NodeId: 1,
 	}
 
-	broker := mq.NewBroker(brokerOption)
+	broker := mqimpl.NewBroker(brokerOption)
 	broker.Start()
 
-	topicOption := &mq.TopicOption{
-		DeliveryLevel: mq.ExactlyOnce,
+	topicOption := &mqapi.TopicOption{
+		DeliveryLevel: mqapi.ExactlyOnce,
 	}
-	queueOption := &mq.QueueOption{
+	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
-		DeliveryLevel:    mq.ExactlyOnce,
-		QueueStoreType:   mq.MEM_STORE,
+		DeliveryLevel:    mqapi.ExactlyOnce,
+		QueueStoreType:   mqapi.MEM_STORE,
 	}
-	subOption := &mq.SubscribeGroupOption{
+	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
 	}
 
-	topic, err := broker.NewTopic(TOPIC_ID, topicOption)
+	topic, err := broker.DefineNewTopic(TOPIC_ID, topicOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue, err := topic.NewQueue(QUEUE_ID, queueOption)
+	queue, err := broker.DefineNewQueue(QUEUE_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	publishGroup, err := broker.NewPublishGroup(PUBLISH_GROUP_ID)
+	publishGroup, err := broker.DefineNewPublishGroup(PUBLISH_GROUP_ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	subscribeGroup, err := broker.NewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
+	subscribeGroup, err := broker.DefineNewSubscribeGroup(SUBSCRIBE_GROUP_ID, subOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue2, err := topic.NewQueue(QUEUE2_ID, queueOption)
+	queue2, err := broker.DefineNewQueue(QUEUE2_ID, queueOption)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE_ID, nil)
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE_ID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = broker.BindTopicQueue(TOPIC_ID, QUEUE2_ID, []mq.IdType{QUEUE2_TAG_ID})
+	err = broker.BindTopicAndQueue(TOPIC_ID, QUEUE2_ID, []mqapi.TagId{QUEUE2_TAG_ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,17 +460,17 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
-	node := &mq.Node{
-		InitFunc: func(sub *mq.SubscribeGroup) {
+	node := &mqimpl.Node{
+		InitFunc: func(sub mqapi.SubscribeGroup) {
 			go func() {
-				ch := sub.SubCh
+				ch := sub.SubscribeChannel()
 				for {
 					elem := <-ch
-					ack := &mq.Ack{AckIdList: []mq.MessageId{}}
+					ack := &mqapi.Ack{AckIdList: []mqapi.MessageId{}}
 					for _, msg := range elem.Request.BatchMessage {
-						ack.AckIdList = append(ack.AckIdList, mq.MessageId{MsgId: msg.MsgId})
+						ack.AckIdList = append(ack.AckIdList, mqapi.MessageId{MsgId: msg.MsgId})
 					}
-					err := sub.Commit(elem.Queue.QueueID, nil, ack)
+					err := sub.Commit(elem.Queue.QueueId(), nil, ack)
 					if err != nil {
 						panic(err)
 					}
@@ -478,14 +478,14 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 			}()
 			go func() {
 				// release chan
-				ch := sub.ReleaseCh
+				ch := sub.ReleaseChannel()
 				for {
 					elem := <-ch
-					ack := &mq.Ack{AckIdList: []mq.MessageId{}}
+					ack := &mqapi.Ack{AckIdList: []mqapi.MessageId{}}
 					for _, msg := range elem.Request.BatchMessage {
-						ack.AckIdList = append(ack.AckIdList, mq.MessageId{MsgId: msg.MsgId})
+						ack.AckIdList = append(ack.AckIdList, mqapi.MessageId{MsgId: msg.MsgId})
 					}
-					err := sub.Release(elem.Queue.QueueID, nil, ack)
+					err := sub.Release(elem.Queue.QueueId(), nil, ack)
 					if err != nil {
 						panic(err)
 					}
@@ -499,35 +499,35 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 
 	subscribeGroup.Join(node)
 
-	msg := mq.Request{
-		Header: mq.Header{
+	msg := mqapi.Request{
+		Header: mqapi.Header{
 			TopicId:       TOPIC_ID,
-			DeliveryLevel: mq.ExactlyOnce,
+			DeliveryLevel: mqapi.ExactlyOnce,
 		},
-		BatchMessage: []mq.Message{
+		BatchMessage: []mqapi.Message{
 			{
-				MessageId: mq.MessageId{
-					MsgId: mq.IdType{0, 0},
-					OutId: mq.IdType{1, 1},
+				MessageId: mqapi.MessageId{
+					MsgId: mqapi.MsgId{0, 0},
+					OutId: mqapi.OutId{1, 1},
 				},
 			},
 		},
 	}
-	received, err := publishGroup.PrePublishMessage(&msg, &mq.Ctx{})
+	received, err := publishGroup.PrePublishMessage(&msg, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log("Ack:", received.AckIdList)
-	commitReq := &mq.MessageCommit{
-		Header: mq.Header{
+	commitReq := &mqapi.MessageCommit{
+		Header: mqapi.Header{
 			TopicId:       TOPIC_ID,
-			DeliveryLevel: mq.ExactlyOnce,
+			DeliveryLevel: mqapi.ExactlyOnce,
 		},
-		Ack: mq.Ack{AckIdList: []mq.MessageId{
+		Ack: mqapi.Ack{AckIdList: []mqapi.MessageId{
 			msg.BatchMessage[0].MessageId,
 		}},
 	}
-	finished, err := publishGroup.CommitMessage(commitReq, &mq.Ctx{})
+	finished, err := publishGroup.CommitMessage(commitReq, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -549,38 +549,38 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 
 	var start = time.Now()
 
-	idgen := mq.NewIdGen(1, 1)
+	idgen := mqapi.NewIdGen(1, 1)
 	for i := 0; i < CNT; i++ {
 		id, err := idgen.Next()
-		mq.AssertError(t, err)
-		msg := mq.Request{
-			Header: mq.Header{
+		AssertError(t, err)
+		msg := mqapi.Request{
+			Header: mqapi.Header{
 				TopicId:       TOPIC_ID,
-				DeliveryLevel: mq.ExactlyOnce,
+				DeliveryLevel: mqapi.ExactlyOnce,
 			},
-			BatchMessage: []mq.Message{
+			BatchMessage: []mqapi.Message{
 				{
-					MessageId: mq.MessageId{
-						MsgId: mq.IdType{0, 0},
-						OutId: id,
+					MessageId: mqapi.MessageId{
+						MsgId: mqapi.MsgId{0, 0},
+						OutId: mqapi.OutId(id),
 					},
 				},
 			},
 		}
-		_, err = publishGroup.PrePublishMessage(&msg, &mq.Ctx{})
+		_, err = publishGroup.PrePublishMessage(&msg, &mqapi.Ctx{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		commitReq := &mq.MessageCommit{
-			Header: mq.Header{
+		commitReq := &mqapi.MessageCommit{
+			Header: mqapi.Header{
 				TopicId:       TOPIC_ID,
-				DeliveryLevel: mq.ExactlyOnce,
+				DeliveryLevel: mqapi.ExactlyOnce,
 			},
-			Ack: mq.Ack{AckIdList: []mq.MessageId{
+			Ack: mqapi.Ack{AckIdList: []mqapi.MessageId{
 				msg.BatchMessage[0].MessageId,
 			}},
 		}
-		_, err = publishGroup.CommitMessage(commitReq, &mq.Ctx{})
+		_, err = publishGroup.CommitMessage(commitReq, &mqapi.Ctx{})
 		if err != nil {
 			t.Fatal(err)
 		}

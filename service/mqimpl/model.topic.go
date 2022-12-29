@@ -1,91 +1,40 @@
-package mq
+package mqimpl
 
 import (
+	"github.com/meidoworks/nekoq/service/mqapi"
 	"sync"
 )
 
+var _ mqapi.Topic = new(Topic)
+
 type Topic struct {
-	topicID       IdType
-	deliveryLevel DeliveryLevelType
+	topicID       mqapi.TopicId
+	deliveryLevel mqapi.DeliveryLevelType
 
 	queueList []*Queue
-	queueMap  map[IdType][]*Queue
+	queueMap  map[mqapi.TagId][]*Queue
 	basicLock sync.Mutex
 
 	topicInternalId   int32
-	topicMessageIdGen *IdGen
+	topicMessageIdGen *mqapi.IdGen
 
 	broker *Broker
 }
 
-type TopicOption struct {
-	DeliveryLevel DeliveryLevelType
+func (this *Topic) TopicId() mqapi.TopicId {
+	return this.topicID
 }
 
-func (this *Broker) NewTopic(topicId IdType, option *TopicOption) (*Topic, error) {
-	t := new(Topic)
-	t.topicID = topicId
-	t.queueList = []*Queue{}
-	t.queueMap = make(map[IdType][]*Queue)
-	switch option.DeliveryLevel {
-	case AtMostOnce:
-		t.deliveryLevel = AtMostOnce
-	case AtLeastOnce:
-		t.deliveryLevel = AtLeastOnce
-	case ExactlyOnce:
-		t.deliveryLevel = ExactlyOnce
-	default:
-		t.deliveryLevel = AtMostOnce
-	}
-	topicInternalId, err := this.GenNewInternalTopicId()
-	if err != nil {
-		return nil, err
-	}
-	t.topicMessageIdGen = NewIdGen(this.nodeId, topicInternalId)
-	t.topicInternalId = topicInternalId
-	t.broker = this
-
-	err = this.addTopic(t)
-	if err != nil {
-		return nil, err
-	}
-
-	return t, nil
+func (this *Topic) DeliveryLevel() mqapi.DeliveryLevelType {
+	return this.deliveryLevel
 }
 
-func (this *Broker) addTopic(topic *Topic) error {
-	this.basicLock.Lock()
-	defer this.basicLock.Unlock()
-
-	if _, ok := this.topicMap[topic.topicID]; ok {
-		return ErrTopicAlreadyExist
-	}
-
-	c := make(chan map[IdType]*Topic)
-	go func() {
-		newMap := make(map[IdType]*Topic)
-		for k, v := range this.topicMap {
-			newMap[k] = v
-		}
-		newMap[topic.topicID] = topic
-
-		c <- newMap
-	}()
-	this.topicMap = <-c
-	return nil
-}
-
-func (this *Broker) deleteTopic(topicId IdType) error {
-	//TODO
-	return nil
-}
-
-func (this *Topic) PreQueue(req *Request) {
+func (this *Topic) PreQueue(req *mqapi.Request) {
 	//TODO
 	//TODO features: pre-persistent, status check callback
 }
 
-func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
+func (this *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
 	tags := req.Header.Tags
 	queueList := this.queueList
 
@@ -94,8 +43,8 @@ func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 	messages := req.BatchMessage
 	msgCnt := len(messages)
 	for i := 0; i < msgCnt; i++ {
-		var err error
-		messages[i].MsgId, err = idgen.Next()
+		msgId, err := idgen.Next()
+		messages[i].MsgId = mqapi.MsgId(msgId)
 		if err != nil {
 			return err
 		}
@@ -138,7 +87,7 @@ func (this *Topic) PublishMessage(req *Request, ctx *Ctx) error {
 }
 
 // at least once
-func (this *Topic) PublishMessageWithResponse(req *Request, ctx *Ctx) (Ack, error) {
+func (this *Topic) PublishMessageWithResponse(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	tags := req.Header.Tags
 	queueList := this.queueList
 
@@ -146,17 +95,15 @@ func (this *Topic) PublishMessageWithResponse(req *Request, ctx *Ctx) (Ack, erro
 	idgen := this.topicMessageIdGen
 	messages := req.BatchMessage
 	msgCnt := len(messages)
-	msgIds := make([]MessageId, msgCnt)
+	msgIds := make([]mqapi.MessageId, msgCnt)
 	for i := 0; i < msgCnt; i++ {
-		var err error
-		var id IdType
-		id, err = idgen.Next()
+		id, err := idgen.Next()
 		if err != nil {
 			return EMPTY_MESSAGE_ID_LIST, err
 		}
-		messages[i].MsgId = id
-		msgId := MessageId{
-			MsgId: id,
+		messages[i].MsgId = mqapi.MsgId(id)
+		msgId := mqapi.MessageId{
+			MsgId: mqapi.MsgId(id),
 			OutId: messages[i].OutId,
 		}
 		msgIds[i] = msgId
@@ -195,14 +142,14 @@ func (this *Topic) PublishMessageWithResponse(req *Request, ctx *Ctx) (Ack, erro
 		}
 	}
 
-	return Ack{
+	return mqapi.Ack{
 		AckIdList: msgIds,
 	}, nil
 }
 
 // exactly once
 // omit dup flag
-func (this *Topic) PrePublishMessage(req *Request, ctx *Ctx) (Ack, error) {
+func (this *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	tags := req.Header.Tags
 	queueList := this.queueList
 
@@ -210,17 +157,15 @@ func (this *Topic) PrePublishMessage(req *Request, ctx *Ctx) (Ack, error) {
 	idgen := this.topicMessageIdGen
 	messages := req.BatchMessage
 	msgCnt := len(messages)
-	msgIds := make([]MessageId, msgCnt)
+	msgIds := make([]mqapi.MessageId, msgCnt)
 	for i := 0; i < msgCnt; i++ {
-		var err error
-		var id IdType
-		id, err = idgen.Next()
+		id, err := idgen.Next()
 		if err != nil {
 			return EMPTY_MESSAGE_ID_LIST, err
 		}
-		messages[i].MsgId = id
-		msgId := MessageId{
-			MsgId: id,
+		messages[i].MsgId = mqapi.MsgId(id)
+		msgId := mqapi.MessageId{
+			MsgId: mqapi.MsgId(id),
 			OutId: messages[i].OutId,
 		}
 		msgIds[i] = msgId
@@ -259,14 +204,14 @@ func (this *Topic) PrePublishMessage(req *Request, ctx *Ctx) (Ack, error) {
 		}
 	}
 
-	return Ack{
+	return mqapi.Ack{
 		AckIdList: msgIds,
 	}, nil
 }
 
 // exactly once
 // omit dup flag
-func (this *Topic) CommitMessages(req *MessageCommit, ctx *Ctx) (Ack, error) {
+func (this *Topic) CommitMessages(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	tags := req.Header.Tags
 	queueList := this.queueList
 
