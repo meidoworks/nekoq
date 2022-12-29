@@ -43,17 +43,7 @@ func (this *Broker) addTopic(topic *Topic) error {
 		return mqapi.ErrTopicAlreadyExist
 	}
 
-	c := make(chan map[mqapi.TopicId]*Topic)
-	go func() {
-		newMap := make(map[mqapi.TopicId]*Topic)
-		for k, v := range this.topicMap {
-			newMap[k] = v
-		}
-		newMap[topic.topicID] = topic
-
-		c <- newMap
-	}()
-	this.topicMap = <-c
+	this.topicMap = CopyAddMap(this.topicMap, topic.topicID, topic)
 	return nil
 }
 
@@ -126,19 +116,7 @@ func (this *Broker) addQueue(queue *Queue) error {
 		return mqapi.ErrQueueAlreadyExist
 	}
 
-	c := make(chan map[mqapi.QueueId]*Queue)
-	go func() {
-		newMap := make(map[mqapi.QueueId]*Queue)
-		// copy old kv
-		for k, v := range this.queueMap {
-			newMap[k] = v
-		}
-		// add new
-		newMap[queue.queueID] = queue
-
-		c <- newMap
-	}()
-	this.queueMap = <-c
+	this.queueMap = CopyAddMap(this.queueMap, queue.queueID, queue)
 	return nil
 }
 
@@ -250,19 +228,7 @@ func (this *Broker) addPublishGroup(publishGroup *PublishGroup) error {
 		return mqapi.ErrPublishGroupAlreadyExist
 	}
 
-	c := make(chan map[mqapi.PublishGroupId]*PublishGroup)
-	go func() {
-		newMap := make(map[mqapi.PublishGroupId]*PublishGroup)
-		// copy old kv
-		for k, v := range this.publishGroupMap {
-			newMap[k] = v
-		}
-		// add new
-		newMap[publishGroup.publishGroupID] = publishGroup
-
-		c <- newMap
-	}()
-	this.publishGroupMap = <-c
+	this.publishGroupMap = CopyAddMap(this.publishGroupMap, publishGroup.publishGroupID, publishGroup)
 	return nil
 }
 
@@ -290,16 +256,7 @@ func (this *Broker) BindPublishGroupToTopic(publishGroupId mqapi.PublishGroupId,
 	pgTopicMap := publishGroup.topicMap
 	_, ok = pgTopicMap[topicId]
 	if !ok {
-		c := make(chan map[mqapi.TopicId]*Topic)
-		go func() {
-			newMap := make(map[mqapi.TopicId]*Topic)
-			for k, v := range pgTopicMap {
-				newMap[k] = v
-			}
-			newMap[topicId] = topic
-			c <- newMap
-		}()
-		publishGroup.topicMap = <-c
+		publishGroup.topicMap = CopyAddMap(pgTopicMap, topicId, topic)
 	}
 
 	return nil
@@ -337,19 +294,7 @@ func (this *Broker) addSubscribeGroup(subscribeGroup *SubscribeGroup) error {
 		return mqapi.ErrSubscribeGroupAlreadyExist
 	}
 
-	c := make(chan map[mqapi.SubscribeGroupId]*SubscribeGroup)
-	go func() {
-		newMap := make(map[mqapi.SubscribeGroupId]*SubscribeGroup)
-		// copy old kv
-		for k, v := range this.subscribeGroup {
-			newMap[k] = v
-		}
-		// add new
-		newMap[subscribeGroup.subscribeGroupID] = subscribeGroup
-
-		c <- newMap
-	}()
-	this.subscribeGroup = <-c
+	this.subscribeGroup = CopyAddMap(this.subscribeGroup, subscribeGroup.subscribeGroupID, subscribeGroup)
 	return nil
 }
 
