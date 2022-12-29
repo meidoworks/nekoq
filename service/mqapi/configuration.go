@@ -24,26 +24,15 @@ type TopicOption struct {
 	DeliveryLevel DeliveryLevelType
 }
 
-type QueueStoreType byte
-
-const (
-	CUSTOM_STORE QueueStoreType = 0
-	MEM_STORE    QueueStoreType = 1
-	FILE_STORE   QueueStoreType = 2
-)
-
 type QueueOption struct {
 	QueueChannelSize        int
 	QueueInboundChannelSize int
 
-	DeliveryLevel  DeliveryLevelType
-	QueueStoreType QueueStoreType
+	DeliveryLevel DeliveryLevelType
+	QueueType     string
 
 	UncommittedMessageRetainTime int // in seconds, default 7 * 24 * 3600
 	RedeliverIntervalTime        int // in seconds, default 5 seconds
-
-	// custom queue type
-	CustomQueueTypeInst QueueType
 }
 
 type SubscribeGroupOption struct {

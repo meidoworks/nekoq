@@ -1,4 +1,4 @@
-package mqimpl_test
+package mq_test
 
 import (
 	"github.com/meidoworks/nekoq/service/mqapi"
@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	_ "github.com/meidoworks/nekoq/service/mq"
 )
 
 var TOPIC = "topic.demo"
@@ -32,7 +34,7 @@ func TestBuildBroker(t *testing.T) {
 	topicOption := &mqapi.TopicOption{}
 	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
-		QueueStoreType:   mqapi.MEM_STORE,
+		QueueType:        "memory",
 	}
 	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
@@ -138,7 +140,7 @@ func TestPrintBrokerTime(t *testing.T) {
 	topicOption := &mqapi.TopicOption{}
 	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
-		QueueStoreType:   mqapi.MEM_STORE,
+		QueueType:        "memory",
 	}
 	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
@@ -266,7 +268,7 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
 		DeliveryLevel:    mqapi.AtLeastOnce,
-		QueueStoreType:   mqapi.MEM_STORE,
+		QueueType:        "memory",
 	}
 	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
@@ -409,7 +411,7 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 	queueOption := &mqapi.QueueOption{
 		QueueChannelSize: 1024,
 		DeliveryLevel:    mqapi.ExactlyOnce,
-		QueueStoreType:   mqapi.MEM_STORE,
+		QueueType:        "memory",
 	}
 	subOption := &mqapi.SubscribeGroupOption{
 		SubscribeChannelSize: 1024,
@@ -552,7 +554,7 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 	idgen := mqapi.NewIdGen(1, 1)
 	for i := 0; i < CNT; i++ {
 		id, err := idgen.Next()
-		AssertError(t, err)
+		assertError(t, err)
 		msg := mqapi.Request{
 			Header: mqapi.Header{
 				TopicId:       TOPIC_ID,

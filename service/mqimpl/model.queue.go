@@ -7,9 +7,8 @@ import (
 var _ mqapi.Queue = new(Queue)
 
 type Queue struct {
-	queueID        mqapi.QueueId
-	deliveryLevel  mqapi.DeliveryLevelType
-	QueueStoreType mqapi.QueueStoreType
+	queueID       mqapi.QueueId
+	deliveryLevel mqapi.DeliveryLevelType
 
 	UncommittedMessageRetainTime int // in seconds, default 7 * 24 * 3600
 	InitBatchObtainCount         int // 16

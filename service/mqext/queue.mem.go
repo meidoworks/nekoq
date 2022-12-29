@@ -1,4 +1,4 @@
-package mqimpl
+package mqext
 
 import (
 	"github.com/meidoworks/nekoq/service/mqapi"

@@ -70,21 +70,10 @@ func (this *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOpt
 		q.UncommittedMessageRetainTime = option.UncommittedMessageRetainTime
 	}
 
-	switch option.QueueStoreType {
-	case mqapi.MEM_STORE:
-		q.QueueStoreType = mqapi.MEM_STORE
-		q.QueueType = new(MemQueue)
-	case mqapi.FILE_STORE:
-		q.QueueStoreType = mqapi.FILE_STORE
-		return nil, mqapi.ErrQueueStoreNotSupported
-	default:
-		queueTypeInst := option.CustomQueueTypeInst
-		if queueTypeInst != nil {
-			q.QueueType = queueTypeInst
-			q.QueueStoreType = mqapi.CUSTOM_STORE
-		} else {
-			return nil, mqapi.ErrQueueStoreUnknown
-		}
+	if qtgen, err := mqapi.GetQueueTypeContainer(option.QueueType); err != nil {
+		return nil, err
+	} else {
+		q.QueueType = qtgen()
 	}
 
 	q.queueID = queueId

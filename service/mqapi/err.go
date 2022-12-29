@@ -27,4 +27,7 @@ var (
 	ErrReplyDestinationNotExist = errors.New("reply destination not exist")
 
 	ErrUnsupportedOperation = errors.New("unsupported operation")
+
+	ErrAddonAlreadyExist = errors.New("addon already exists")
+	ErrAddonNotExist     = errors.New("addon not exists")
 )
