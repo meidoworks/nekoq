@@ -58,7 +58,7 @@ func (this *SubscribeGroup) PumpLoop(record *mqapi.QueueRecord, queue *Queue) {
 			out <- mqapi.SubChanElem{
 				Request:     v,
 				Queue:       queue,
-				QueueRecord: record,
+				QueueRecord: record, //FIXME this may not be appropriate since record will represent one of the batch offset but all messages will share the same one
 			}
 		}
 	}
@@ -92,7 +92,7 @@ func (this *SubscribeGroup) PumpReleasingLoop(record *mqapi.QueueRecord, queue *
 			out <- mqapi.ReleaseChanElem{
 				Request:     v,
 				Queue:       queue,
-				QueueRecord: record,
+				QueueRecord: record, //FIXME this may not be appropriate since record will represent one of the batch offset but all messages will share the same one
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-package mq_test
+package mq
 
 import (
 	"testing"

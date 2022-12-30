@@ -1,4 +1,4 @@
-package mq_test
+package mq
 
 import (
 	"runtime"
@@ -8,8 +8,6 @@ import (
 
 	"github.com/meidoworks/nekoq/service/mqapi"
 	"github.com/meidoworks/nekoq/service/mqimpl"
-
-	_ "github.com/meidoworks/nekoq/service/mq"
 )
 
 var TOPIC = "topic.demo"
