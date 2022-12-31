@@ -9,6 +9,7 @@ import (
 	"github.com/meidoworks/nekoq/service/mqapi"
 	"github.com/meidoworks/nekoq/service/mqimpl"
 	"github.com/meidoworks/nekoq/shared/idgen"
+	"github.com/meidoworks/nekoq/shared/testlib"
 )
 
 var TOPIC = "topic.demo"
@@ -554,7 +555,7 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 	idgen := idgen.NewIdGen(1, 1)
 	for i := 0; i < CNT; i++ {
 		id, err := idgen.Next()
-		assertError(t, err)
+		testlib.AssertError(t, err)
 		msg := mqapi.Request{
 			Header: mqapi.Header{
 				TopicId:       TOPIC_ID,
