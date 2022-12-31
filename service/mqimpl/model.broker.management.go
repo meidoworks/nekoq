@@ -2,6 +2,7 @@ package mqimpl
 
 import (
 	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
 func (this *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOption) (mqapi.Topic, error) {
@@ -23,7 +24,7 @@ func (this *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOpt
 	if err != nil {
 		return nil, err
 	}
-	t.topicMessageIdGen = mqapi.NewIdGen(this.nodeId, topicInternalId)
+	t.topicMessageIdGen = idgen.NewIdGen(this.nodeId, topicInternalId)
 	t.topicInternalId = topicInternalId
 	t.broker = this
 

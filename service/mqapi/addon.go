@@ -1,8 +1,12 @@
 package mqapi
 
-import "context"
+import (
+	"context"
 
-type RecordOffset IdType
+	"github.com/meidoworks/nekoq/shared/idgen"
+)
+
+type RecordOffset idgen.IdType
 
 type QueueRecord struct {
 	FromId RecordOffset

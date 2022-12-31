@@ -8,6 +8,7 @@ import (
 
 	"github.com/meidoworks/nekoq/service/mqapi"
 	"github.com/meidoworks/nekoq/service/mqimpl"
+	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
 var TOPIC = "topic.demo"
@@ -550,7 +551,7 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 
 	var start = time.Now()
 
-	idgen := mqapi.NewIdGen(1, 1)
+	idgen := idgen.NewIdGen(1, 1)
 	for i := 0; i < CNT; i++ {
 		id, err := idgen.Next()
 		assertError(t, err)

@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
 var _ mqapi.Topic = new(Topic)
@@ -17,7 +18,7 @@ type Topic struct {
 	basicLock sync.Mutex
 
 	topicInternalId   int32
-	topicMessageIdGen *mqapi.IdGen
+	topicMessageIdGen *idgen.IdGen
 
 	broker *Broker
 }

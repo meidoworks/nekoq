@@ -1,6 +1,8 @@
-package mqapi
+package idgen
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"runtime"
 	"sync"
@@ -32,6 +34,13 @@ func (this IdType) CompareTo(id2 IdType) int {
 	} else {
 		return 0
 	}
+}
+
+func (i IdType) HexString() string {
+	data := make([]byte, 16)
+	binary.BigEndian.PutUint64(data[0:8], uint64(i[0]))
+	binary.BigEndian.PutUint64(data[8:16], uint64(i[1]))
+	return hex.EncodeToString(data)
 }
 
 type IdGen struct {

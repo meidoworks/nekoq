@@ -1,16 +1,18 @@
 package mqapi
 
-type TopicId IdType
-type QueueId IdType
-type TagId IdType
-type PublishGroupId IdType
-type SubscribeGroupId IdType
-type NodeId IdType
+import "github.com/meidoworks/nekoq/shared/idgen"
 
-type PartitionId IdType
+type TopicId idgen.IdType
+type QueueId idgen.IdType
+type TagId idgen.IdType
+type PublishGroupId idgen.IdType
+type SubscribeGroupId idgen.IdType
+type NodeId idgen.IdType
 
-type MsgId IdType
-type OutId IdType
+type PartitionId idgen.IdType
+
+type MsgId idgen.IdType
+type OutId idgen.IdType
 
 type DeliveryLevelType byte
 
