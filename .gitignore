@@ -34,3 +34,5 @@ _testmain.go
 # config files
 /*.toml
 
+# temp data files
+/data
