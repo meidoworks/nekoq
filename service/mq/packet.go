@@ -11,10 +11,16 @@ type GeneralReq struct {
 	RequestId string `json:"request_id"`
 
 	NewTopic *TopicDef `json:"new_topic,omitempty"`
+	NewQueue *QueueDef `json:"new_queue,omitempty"`
 }
 
 type TopicDef struct {
 	Topic             string `json:"topic"`
+	DeliveryLevelType string `json:"delivery_level_type"`
+}
+
+type QueueDef struct {
+	Queue             string `json:"queue"`
 	DeliveryLevelType string `json:"delivery_level_type"`
 }
 

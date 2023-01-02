@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/meidoworks/nekoq/service/mqapi"
-	"github.com/pelletier/go-toml"
 
+	"github.com/pelletier/go-toml"
 	"github.com/spf13/afero"
 )
 
@@ -50,7 +50,6 @@ func (m *metadataContainer) initMem() {
 func (m *metadataContainer) PrepareBroker() {
 	// load topic
 	for _, v := range m.Topics {
-		m.Topics = append(m.Topics, v)
 		m.topicMap[v.Topic] = v
 		to := &mqapi.TopicOption{
 			DeliveryLevel: convertDeliveryLevelType(v.DeliveryLevelType),
@@ -60,8 +59,70 @@ func (m *metadataContainer) PrepareBroker() {
 			panic(err)
 		}
 	}
-	//TODO load queue
+	// load queue
+	for _, v := range m.Queues {
+		m.queueMap[v.Queue] = v
+		to := &mqapi.QueueOption{
+			DeliveryLevel: convertDeliveryLevelType(v.DeliveryLevelType),
+			QueueType:     "memory", //FIXME should be configured on demand
+		}
+		_, err := GetBroker().DefineNewQueue(v.QueueId, to)
+		if err != nil {
+			panic(err)
+		}
+	}
 	//TODO load binding
+}
+
+func (m *metadataContainer) NewQueue(t *QueueDef) (mqapi.QueueId, bool, error) {
+	id, newlyAdded, err := m.newQueue0(t)
+	if err != nil {
+		return id, newlyAdded, err
+	}
+	if newlyAdded {
+		//FIXME perhaps here we should persist metadata first?
+		err = _persistMetadata()
+	}
+	return id, newlyAdded, err
+}
+
+func (m *metadataContainer) newQueue0(t *QueueDef) (mqapi.QueueId, bool, error) {
+	// validation
+	if !ValidateNameForBrokerMechanisms(t.Queue) {
+		return mqapi.QueueId{}, false, ErrInvalidInputParameter
+	}
+	if !validateDeliveryType(t.DeliveryLevelType) {
+		return mqapi.QueueId{}, false, ErrInvalidInputParameter
+	}
+
+	id, err := idgenerator.Next()
+	if err != nil {
+		return mqapi.QueueId{}, false, err
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	ov, ok := m.queueMap[t.Queue]
+	// same definition
+	if ok {
+		// check options equivalent
+		if ov.DeliveryLevelType != t.DeliveryLevelType {
+			return mqapi.QueueId{}, false, ErrDefinitionMismatch
+		} else {
+			return ov.QueueId, false, nil
+		}
+	}
+
+	mqi := &metaQueue{
+		Queue:             t.Queue,
+		DeliveryLevelType: t.DeliveryLevelType,
+		QueueId:           mqapi.QueueId(id),
+	}
+	m.Queues = append(m.Queues, mqi)
+	m.queueMap[t.Queue] = mqi
+
+	return mqi.QueueId, true, nil
 }
 
 func (m *metadataContainer) NewTopic(t *TopicDef) (mqapi.TopicId, bool, error) {
@@ -119,6 +180,9 @@ type metaTopicAndQueueBinding struct {
 }
 
 type metaQueue struct {
+	Queue             string        `toml:"queue"`
+	DeliveryLevelType string        `toml:"delivery_level_type"`
+	QueueId           mqapi.QueueId `toml:"queue_id"`
 }
 
 type metaTopic struct {

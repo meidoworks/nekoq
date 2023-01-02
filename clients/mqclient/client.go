@@ -22,11 +22,11 @@ const (
 )
 
 type TopicOption struct {
-	DeliveryType DeliveryType
+	DeliveryLevelType DeliveryType
 }
 
 type QueueOption struct {
-	DeliveryType DeliveryType
+	DeliveryLevelType DeliveryType
 }
 
 type Client struct {
@@ -67,7 +67,7 @@ type Session struct {
 func (c *Session) CreateTopic(topic string, topicOption TopicOption) error {
 	tp := new(NewTopicRequest)
 	tp.Topic = topic
-	switch topicOption.DeliveryType {
+	switch topicOption.DeliveryLevelType {
 	case AtMostOnce:
 		tp.DeliveryLevelType = DeliveryTypeAtMostOnce
 	case AtLeastOnce:
@@ -75,7 +75,7 @@ func (c *Session) CreateTopic(topic string, topicOption TopicOption) error {
 	case ExactlyOnce:
 		tp.DeliveryLevelType = DeliveryTypeExactlyOnce
 	default:
-		return errors.New("Unknown delivery type:" + fmt.Sprint(topicOption.DeliveryType))
+		return errors.New("Unknown delivery level type:" + fmt.Sprint(topicOption.DeliveryLevelType))
 	}
 
 	req := new(ToServerSidePacket)
@@ -90,6 +90,7 @@ func (c *Session) CreateTopic(topic string, topicOption TopicOption) error {
 	if ch, err := c.channel.writeObj(req); err != nil {
 		return err
 	} else {
+		//TODO max wait time on client side
 		r := <-ch
 		log.Println("receive response from server:" + fmt.Sprint(r))
 		if r.Status != "200" {
@@ -100,8 +101,39 @@ func (c *Session) CreateTopic(topic string, topicOption TopicOption) error {
 }
 
 func (c *Session) CreateQueue(queue string, queueOption QueueOption) error {
-	//TODO implement me
-	panic("implement me")
+	qp := new(NewQueueRequest)
+	qp.Queue = queue
+	switch queueOption.DeliveryLevelType {
+	case AtMostOnce:
+		qp.DeliveryLevelType = DeliveryTypeAtMostOnce
+	case AtLeastOnce:
+		qp.DeliveryLevelType = DeliveryTypeAtLeastOnce
+	case ExactlyOnce:
+		qp.DeliveryLevelType = DeliveryTypeExactlyOnce
+	default:
+		return errors.New("Unknown delivery level type:" + fmt.Sprint(queueOption.DeliveryLevelType))
+	}
+
+	req := new(ToServerSidePacket)
+	req.NewQueue = qp
+	req.Operation = OperationNewQueue
+	id, err := c.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := c.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		log.Println("receive response from server:" + fmt.Sprint(r))
+		if r.Status != "200" {
+			return errors.New("create queue failed from server:" + fmt.Sprint(r.Status))
+		}
+	}
+	return nil
 }
 
 func (c *Session) BindTopicAndQueue(topic, queue, bindingKey string) error {

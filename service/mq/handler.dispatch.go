@@ -16,26 +16,54 @@ func dispatch(p *GeneralReq, f func() (io.WriteCloser, error)) error {
 	switch p.Operation {
 	case "new_topic":
 		res, err := handleNewTopic(p, f)
-		if err != nil {
-			return err
-		}
-		wc, err := f()
-		if err != nil {
-			// prepare to write failed
-			// just exit
-			return err
-		}
-		defer wc.Close()
-		if err := respondPacket(res, wc); err != nil {
-			// prepare to write failed
-			// just exit
-			return err
-		}
 		log.Println("process new topic completed")
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
+	case "new_queue":
+		res, err := handleNewQueue(p, f)
+		log.Println("process new queue completed")
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
 		return nil
 	default:
 		return errors.New("unknown operation:" + p.Operation)
 	}
+}
+
+func handleNewQueue(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRes, error) {
+	// validation
+	if p.NewQueue == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	// step1: check metadata db
+	if id, _, err := GetMetadataContainer().NewQueue(p.NewQueue); err == ErrInvalidInputParameter {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	} else if err != nil {
+		log.Println("unknown occurs:" + fmt.Sprint(err))
+		res := newFailedResponse("500", "unknown error", p.RequestId)
+		return res, nil
+	} else {
+		// step2: define it in the broker
+		to := &mqapi.QueueOption{
+			DeliveryLevel: convertDeliveryLevelType(p.NewQueue.DeliveryLevelType),
+			QueueType:     "memory", //FIXME should be configured on demand
+		}
+		_, err := GetBroker().DefineNewQueue(id, to)
+		if err != nil && err != mqapi.ErrQueueAlreadyExist {
+			// skip on topic existing to make the define operation idempotent
+			return newSuccessResponse(p.RequestId), nil
+		}
+	}
+
+	// prepare output
+	return newSuccessResponse(p.RequestId), nil
 }
 
 func handleNewTopic(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRes, error) {
@@ -68,6 +96,25 @@ func handleNewTopic(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRe
 
 	// prepare output
 	return newSuccessResponse(p.RequestId), nil
+}
+
+func handleResponse(res *GeneralRes, err error, f func() (io.WriteCloser, error)) error {
+	if err != nil {
+		return err
+	}
+	wc, err := f()
+	if err != nil {
+		// prepare to write failed
+		// just exit
+		return err
+	}
+	defer wc.Close()
+	if err := respondPacket(res, wc); err != nil {
+		// prepare to write failed
+		// just exit
+		return err
+	}
+	return nil
 }
 
 func convertDeliveryLevelType(t string) mqapi.DeliveryLevelType {

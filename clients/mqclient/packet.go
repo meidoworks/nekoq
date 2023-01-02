@@ -8,6 +8,7 @@ const (
 
 const (
 	OperationNewTopic = "new_topic"
+	OperationNewQueue = "new_queue"
 )
 
 type ServerSideIncoming struct {
@@ -24,10 +25,16 @@ type ToServerSidePacket struct {
 	RequestId string `json:"request_id"`
 
 	NewTopic *NewTopicRequest `json:"new_topic"`
+	NewQueue *NewQueueRequest `json:"new_queue"`
 }
 
 type NewTopicRequest struct {
 	Topic             string `json:"topic"`
+	DeliveryLevelType string `json:"delivery_level_type"`
+}
+
+type NewQueueRequest struct {
+	Queue             string `json:"queue"`
 	DeliveryLevelType string `json:"delivery_level_type"`
 }
 

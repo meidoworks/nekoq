@@ -64,7 +64,7 @@ func TestClientRpc(t *testing.T) {
 	t.Log(result.(string))
 }
 
-func TestSession_CreateTopic(t *testing.T) {
+func TestSession_Create(t *testing.T) {
 
 	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
 	if err != nil {
@@ -78,10 +78,15 @@ func TestSession_CreateTopic(t *testing.T) {
 	defer s.Close(context.Background())
 
 	err = s.CreateTopic("demo.001", mqclient.TopicOption{
-		DeliveryType: mqclient.AtMostOnce,
+		DeliveryLevelType: mqclient.AtMostOnce,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	if err := s.CreateQueue("demo.queue.001", mqclient.QueueOption{
+		DeliveryLevelType: mqclient.AtMostOnce,
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
