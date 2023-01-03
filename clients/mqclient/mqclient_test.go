@@ -89,4 +89,8 @@ func TestSession_Create(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+
+	if err := s.BindTopicAndQueue("demo.001", "demo.queue.001", "demo.routing.*"); err != nil {
+		t.Fatal(err)
+	}
 }

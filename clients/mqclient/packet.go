@@ -9,6 +9,7 @@ const (
 const (
 	OperationNewTopic = "new_topic"
 	OperationNewQueue = "new_queue"
+	OperationBind     = "bind"
 )
 
 type ServerSideIncoming struct {
@@ -24,8 +25,9 @@ type ToServerSidePacket struct {
 	Operation string `json:"operation"`
 	RequestId string `json:"request_id"`
 
-	NewTopic *NewTopicRequest `json:"new_topic"`
-	NewQueue *NewQueueRequest `json:"new_queue"`
+	NewTopic   *NewTopicRequest `json:"new_topic,omitempty"`
+	NewQueue   *NewQueueRequest `json:"new_queue,omitempty"`
+	NewBinding *BindRequest     `json:"new_binding,omitempty"`
 }
 
 type NewTopicRequest struct {
@@ -36,6 +38,12 @@ type NewTopicRequest struct {
 type NewQueueRequest struct {
 	Queue             string `json:"queue"`
 	DeliveryLevelType string `json:"delivery_level_type"`
+}
+
+type BindRequest struct {
+	Topic      string `json:"topic"`
+	Queue      string `json:"queue"`
+	BindingKey string `json:"binding_key"`
 }
 
 type PublishRequest struct {

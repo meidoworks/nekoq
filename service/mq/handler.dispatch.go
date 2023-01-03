@@ -15,15 +15,22 @@ func dispatch(p *GeneralReq, f func() (io.WriteCloser, error)) error {
 
 	switch p.Operation {
 	case "new_topic":
-		res, err := handleNewTopic(p, f)
+		res, err := handleNewTopic(p)
 		log.Println("process new topic completed")
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
 		return nil
 	case "new_queue":
-		res, err := handleNewQueue(p, f)
+		res, err := handleNewQueue(p)
 		log.Println("process new queue completed")
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
+	case "bind":
+		res, err := handleBind(p)
+		log.Println("process bind completed")
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
@@ -33,7 +40,35 @@ func dispatch(p *GeneralReq, f func() (io.WriteCloser, error)) error {
 	}
 }
 
-func handleNewQueue(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRes, error) {
+func handleBind(p *GeneralReq) (*GeneralRes, error) {
+	// validation
+	if p.NewBinding == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	if bds, _, err := GetMetadataContainer().NewBinding(p.NewBinding); err == ErrInvalidInputParameter {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	} else if err != nil {
+		log.Println("unknown occurs:" + fmt.Sprint(err))
+		res := newFailedResponse("500", "unknown error", p.RequestId)
+		return res, nil
+	} else {
+		// broker operation
+		err := GetBroker().BindTopicAndQueue(bds.TopicId, bds.QueueId, []mqapi.TagId{bds.Tag})
+		if err != nil {
+			log.Println("bind topic and queue failed:" + fmt.Sprint(err))
+			return newFailedResponse("500", "bind topic and queue failed", p.RequestId), nil
+		}
+	}
+
+	// prepare output
+	return newSuccessResponse(p.RequestId), nil
+}
+
+func handleNewQueue(p *GeneralReq) (*GeneralRes, error) {
 	// validation
 	if p.NewQueue == nil {
 		res := newFailedResponse("400", "parameter invalid", p.RequestId)
@@ -56,9 +91,12 @@ func handleNewQueue(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRe
 			QueueType:     "memory", //FIXME should be configured on demand
 		}
 		_, err := GetBroker().DefineNewQueue(id, to)
-		if err != nil && err != mqapi.ErrQueueAlreadyExist {
+		if err != nil && err == mqapi.ErrQueueAlreadyExist {
 			// skip on topic existing to make the define operation idempotent
 			return newSuccessResponse(p.RequestId), nil
+		} else if err != nil {
+			log.Println("broker returns error:" + fmt.Sprint(err))
+			return newFailedResponse("500", "internal error", p.RequestId), nil
 		}
 	}
 
@@ -66,7 +104,7 @@ func handleNewQueue(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRe
 	return newSuccessResponse(p.RequestId), nil
 }
 
-func handleNewTopic(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRes, error) {
+func handleNewTopic(p *GeneralReq) (*GeneralRes, error) {
 	// validation
 	if p.NewTopic == nil {
 		res := newFailedResponse("400", "parameter invalid", p.RequestId)
@@ -88,9 +126,12 @@ func handleNewTopic(p *GeneralReq, f func() (io.WriteCloser, error)) (*GeneralRe
 			DeliveryLevel: convertDeliveryLevelType(p.NewTopic.DeliveryLevelType),
 		}
 		_, err := GetBroker().DefineNewTopic(id, to)
-		if err != nil && err != mqapi.ErrTopicAlreadyExist {
+		if err != nil && err == mqapi.ErrTopicAlreadyExist {
 			// skip on topic existing to make the define operation idempotent
 			return newSuccessResponse(p.RequestId), nil
+		} else if err != nil {
+			log.Println("broker returns error:" + fmt.Sprint(err))
+			return newFailedResponse("500", "internal error", p.RequestId), nil
 		}
 	}
 

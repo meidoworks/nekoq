@@ -14,6 +14,7 @@ import (
 var (
 	ErrDefinitionMismatch    = errors.New("definition mismatch")
 	ErrInvalidInputParameter = errors.New("invalid input parameter")
+	ErrComponentNotExist     = errors.New("component not exist")
 )
 
 const (
@@ -36,15 +37,17 @@ type metadataContainer struct {
 	Queues   []*metaQueue                `toml:"queues"`
 	Bindings []*metaTopicAndQueueBinding `toml:"bindings"`
 
-	topicMap map[string]*metaTopic
-	queueMap map[string]*metaQueue
+	topicMap   map[string]*metaTopic
+	queueMap   map[string]*metaQueue
+	bindingMap map[string][]*metaTopicAndQueueBinding
 
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 func (m *metadataContainer) initMem() {
 	m.topicMap = make(map[string]*metaTopic)
 	m.queueMap = make(map[string]*metaQueue)
+	m.bindingMap = make(map[string][]*metaTopicAndQueueBinding)
 }
 
 func (m *metadataContainer) PrepareBroker() {
@@ -71,7 +74,90 @@ func (m *metadataContainer) PrepareBroker() {
 			panic(err)
 		}
 	}
-	//TODO load binding
+	// load binding
+	for _, v := range m.Bindings {
+		bds, ok := m.bindingMap[v.Topic]
+		if !ok {
+			bds = make([]*metaTopicAndQueueBinding, 0, 16)
+		}
+		bds = append(bds, v)
+		m.bindingMap[v.Topic] = bds
+		err := GetBroker().BindTopicAndQueue(v.TopicId, v.QueueId, []mqapi.TagId{v.Tag})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (m *metadataContainer) NewBinding(b *BindDef) (StoredBinding, bool, error) {
+	bds, newlyAdded, err := m.newBinding0(b)
+	if err != nil {
+		return bds, newlyAdded, err
+	}
+	if newlyAdded {
+		//FIXME perhaps here we should persist metadata first?
+		err = _persistMetadata()
+	}
+	return bds, newlyAdded, err
+}
+
+func (m *metadataContainer) newBinding0(b *BindDef) (StoredBinding, bool, error) {
+	// validation
+	if !ValidateNameForBrokerMechanisms(b.Topic) {
+		return StoredBinding{}, false, ErrInvalidInputParameter
+	}
+	if !ValidateNameForBrokerMechanisms(b.Queue) {
+		return StoredBinding{}, false, ErrInvalidInputParameter
+	}
+	if !validateBindingKey(b.BindingKey) {
+		return StoredBinding{}, false, ErrInvalidInputParameter
+	}
+
+	tag, err := idgenerator.Next()
+	if err != nil {
+		return StoredBinding{}, false, err
+	}
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	t, ok := m.topicMap[b.Topic]
+	if !ok {
+		return StoredBinding{}, false, ErrComponentNotExist
+	}
+	q, ok := m.queueMap[b.Queue]
+	if !ok {
+		return StoredBinding{}, false, ErrComponentNotExist
+	}
+	bds, ok := m.bindingMap[b.Topic]
+	if !ok {
+		bds = make([]*metaTopicAndQueueBinding, 0, 16)
+	}
+	for _, v := range bds {
+		if v.Queue == b.Queue && v.BindingKey == b.BindingKey {
+			return StoredBinding{
+				TopicId: v.TopicId,
+				QueueId: v.QueueId,
+				Tag:     v.Tag,
+			}, false, nil
+		}
+	}
+	metaBinding := new(metaTopicAndQueueBinding)
+	metaBinding.Tag = mqapi.TagId(tag)
+	metaBinding.BindingKey = b.BindingKey
+	metaBinding.QueueId = q.QueueId
+	metaBinding.Queue = b.Queue
+	metaBinding.Topic = b.Topic
+	metaBinding.TopicId = t.TopicId
+	bds = append(bds, metaBinding)
+	m.bindingMap[b.Topic] = bds
+	m.Bindings = append(m.Bindings, metaBinding)
+
+	return StoredBinding{
+		TopicId: metaBinding.TopicId,
+		QueueId: metaBinding.QueueId,
+		Tag:     metaBinding.Tag,
+	}, true, nil
 }
 
 func (m *metadataContainer) NewQueue(t *QueueDef) (mqapi.QueueId, bool, error) {
@@ -176,7 +262,19 @@ func (m *metadataContainer) newTopic0(t *TopicDef) (mqapi.TopicId, bool, error) 
 	return mt.TopicId, true, nil
 }
 
+type StoredBinding struct {
+	TopicId mqapi.TopicId
+	QueueId mqapi.QueueId
+	Tag     mqapi.TagId
+}
+
 type metaTopicAndQueueBinding struct {
+	Topic      string        `toml:"topic"`
+	TopicId    mqapi.TopicId `toml:"topic_id"`
+	Queue      string        `toml:"queue"`
+	QueueId    mqapi.QueueId `toml:"queue_id"`
+	BindingKey string        `toml:"binding_key"`
+	Tag        mqapi.TagId   `toml:"tag_id"`
 }
 
 type metaQueue struct {
@@ -223,7 +321,7 @@ func LoadMetadata() error {
 }
 
 func _persistMetadata() error {
-	//TODO need optimize callee
+	//FIXME need optimize callee
 	fs := afero.NewOsFs()
 
 	GetMetadataContainer().lock.Lock()

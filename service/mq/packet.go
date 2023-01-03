@@ -10,8 +10,9 @@ type GeneralReq struct {
 	Operation string `json:"operation"`
 	RequestId string `json:"request_id"`
 
-	NewTopic *TopicDef `json:"new_topic,omitempty"`
-	NewQueue *QueueDef `json:"new_queue,omitempty"`
+	NewTopic   *TopicDef `json:"new_topic,omitempty"`
+	NewQueue   *QueueDef `json:"new_queue,omitempty"`
+	NewBinding *BindDef  `json:"new_binding,omitempty"`
 }
 
 type TopicDef struct {
@@ -22,6 +23,12 @@ type TopicDef struct {
 type QueueDef struct {
 	Queue             string `json:"queue"`
 	DeliveryLevelType string `json:"delivery_level_type"`
+}
+
+type BindDef struct {
+	Topic      string `json:"topic"`
+	Queue      string `json:"queue"`
+	BindingKey string `json:"binding_key"`
 }
 
 type GeneralRes struct {

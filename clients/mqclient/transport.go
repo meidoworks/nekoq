@@ -32,7 +32,7 @@ func newChannel(address string) (*webChannel, error) {
 	defer cancel()
 
 	c, _, err := websocket.Dial(ctx, address, &websocket.DialOptions{
-		Subprotocols: []string{"nekoq"},
+		Subprotocols: []string{"NekoQ"},
 	})
 	if err != nil {
 		return nil, err

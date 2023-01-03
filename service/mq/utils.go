@@ -4,7 +4,12 @@ import (
 	"encoding/json"
 	"log"
 	"regexp"
+	"strings"
 )
+
+func ConcatNames(strs ...string) string {
+	return strings.Join(strs, ":")
+}
 
 func ValidateNameForBrokerMechanisms(v string) bool {
 	matched, err := regexp.MatchString(`^([a-zA-Z0-9_-]+)(\.[a-zA-Z0-9_-]+)*$`, v)

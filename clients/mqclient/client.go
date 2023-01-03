@@ -137,8 +137,31 @@ func (c *Session) CreateQueue(queue string, queueOption QueueOption) error {
 }
 
 func (c *Session) BindTopicAndQueue(topic, queue, bindingKey string) error {
-	//TODO implement me
-	panic("implement me")
+	bp := new(BindRequest)
+	bp.Topic = topic
+	bp.Queue = queue
+	bp.BindingKey = bindingKey
+
+	req := new(ToServerSidePacket)
+	req.NewBinding = bp
+	req.Operation = OperationBind
+	id, err := c.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := c.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		log.Println("receive response from server:" + fmt.Sprint(r))
+		if r.Status != "200" {
+			return errors.New("bind failed from server:" + fmt.Sprint(r.Status))
+		}
+	}
+	return nil
 }
 
 func (c *Session) CreatePublishGroup(publishGroupName, topic string) (PublishGroup, error) {

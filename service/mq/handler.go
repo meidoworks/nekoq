@@ -17,7 +17,7 @@ type messagingHandler struct {
 
 func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		Subprotocols: []string{"nekoq"},
+		Subprotocols: []string{"NekoQ"},
 	})
 	if err != nil {
 		log.Printf("%v\n", err)
@@ -25,8 +25,8 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close(websocket.StatusInternalError, "the sky is falling")
 
-	if c.Subprotocol() != "nekoq" {
-		c.Close(websocket.StatusPolicyViolation, "client must speak the nekoq subprotocol")
+	if c.Subprotocol() != "NekoQ" {
+		c.Close(websocket.StatusPolicyViolation, "client must speak the NekoQ subprotocol")
 		return
 	}
 
