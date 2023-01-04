@@ -1,2 +1,0 @@
-Connection = "host=127.0.0.1 port=5432 dbname=nekoq user=admin password=admin"
-Listen = ":7012"
