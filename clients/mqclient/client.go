@@ -165,8 +165,37 @@ func (c *Session) BindTopicAndQueue(topic, queue, bindingKey string) error {
 }
 
 func (c *Session) CreatePublishGroup(publishGroupName, topic string) (PublishGroup, error) {
-	//TODO implement me
-	panic("implement me")
+	bp := new(NewPublishGroupRequest)
+	bp.Topic = topic
+	bp.PublishGroup = publishGroupName
+
+	req := new(ToServerSidePacket)
+	req.NewPublishGroupRequest = bp
+	req.Operation = OperationNewPublishGroup
+	id, err := c.idgen.Next()
+	if err != nil {
+		return nil, err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := c.channel.writeObj(req); err != nil {
+		return nil, err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		log.Println("receive response from server:" + fmt.Sprint(r))
+		if r.Status != "200" {
+			return nil, errors.New("bind failed from server:" + fmt.Sprint(r.Status))
+		}
+		if r.PublishGroupResponse.PublishGroup != publishGroupName {
+			return nil, errors.New("publish group names doesn't match")
+		}
+		pg := new(publishGroupImpl)
+		pg.Session = c
+		pg.Topic = topic
+		pg.PublishGroup = publishGroupName
+		return pg, nil
+	}
 }
 
 func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, sg SubscribeGroup) error {
@@ -190,15 +219,22 @@ func (c *Session) RpcHandle(serviceQueue string, encoder Codec, h RpcHandler) er
 }
 
 func (c *Session) Close(ctx context.Context) error {
-	//TODO unsubscribe all before connection closed
+	//FIXME unsubscribe all before connection closed
 	return c.channel.close()
 }
 
 type PublishGroup interface {
 	//TODO publish methods
-	Publish()
+	//Publish()
 
-	AddReplyHandler(h func() error) error //TODO
+	//TODO AddReplyHandler(h func() error) error
+}
+
+type publishGroupImpl struct {
+	Topic        string
+	PublishGroup string
+
+	*Session
 }
 
 type SubscribeGroup interface {

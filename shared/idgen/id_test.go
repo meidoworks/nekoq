@@ -57,4 +57,9 @@ func TestIdType_HexString(t *testing.T) {
 	if "000000000000000f000000000000000f" != (IdType{15, 15}).HexString() {
 		t.Fatal("hex string of IdType failed")
 	}
+	if id, err := FromHexString("000000000000000f000000000000000f"); err != nil {
+		t.Fatal(err)
+	} else if id != (IdType{15, 15}) {
+		t.Fatal("id unmatched")
+	}
 }

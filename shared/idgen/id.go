@@ -43,6 +43,20 @@ func (i IdType) HexString() string {
 	return hex.EncodeToString(data)
 }
 
+func FromHexString(str string) (IdType, error) {
+	b, err := hex.DecodeString(str)
+	if err != nil {
+		return IdType{}, err
+	}
+	if len(b) != 16 {
+		return IdType{}, errors.New("raw string length is not 16")
+	}
+	r := IdType{}
+	r[0] = int64(binary.BigEndian.Uint64(b[0:8]))
+	r[1] = int64(binary.BigEndian.Uint64(b[8:16]))
+	return r, nil
+}
+
 type IdGen struct {
 	lock sync.Mutex
 

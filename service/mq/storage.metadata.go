@@ -42,12 +42,18 @@ type metadataContainer struct {
 	bindingMap map[string][]*metaTopicAndQueueBinding
 
 	lock sync.RWMutex
+
+	publishGroupMap   map[string]mqapi.PublishGroupId
+	subscribeGroupMap map[string]mqapi.SubscribeGroupId
+	groupLock         sync.RWMutex
 }
 
 func (m *metadataContainer) initMem() {
 	m.topicMap = make(map[string]*metaTopic)
 	m.queueMap = make(map[string]*metaQueue)
 	m.bindingMap = make(map[string][]*metaTopicAndQueueBinding)
+	m.publishGroupMap = make(map[string]mqapi.PublishGroupId)
+	m.subscribeGroupMap = make(map[string]mqapi.SubscribeGroupId)
 }
 
 func (m *metadataContainer) PrepareBroker() {
@@ -86,6 +92,36 @@ func (m *metadataContainer) PrepareBroker() {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+
+func (m *metadataContainer) GetTopic(t string) *metaTopic {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	tp, ok := m.topicMap[t]
+	if ok {
+		return tp
+	} else {
+		return nil
+	}
+}
+
+func (m *metadataContainer) NewPublishGroup(g string) (mqapi.PublishGroupId, error) {
+	i, err := idgenerator.Next()
+	if err != nil {
+		return mqapi.PublishGroupId{}, err
+	}
+
+	m.groupLock.Lock()
+	defer m.groupLock.Unlock()
+
+	r, ok := m.publishGroupMap[g]
+	if ok {
+		return r, nil
+	} else {
+		m.publishGroupMap[g] = mqapi.PublishGroupId(i)
+		return r, nil
 	}
 }
 

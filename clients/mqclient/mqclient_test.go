@@ -64,7 +64,7 @@ func TestClientRpc(t *testing.T) {
 	t.Log(result.(string))
 }
 
-func TestSession_Create(t *testing.T) {
+func TestSession_CreateAtMostOnce(t *testing.T) {
 
 	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
 	if err != nil {
@@ -93,4 +93,17 @@ func TestSession_Create(t *testing.T) {
 	if err := s.BindTopicAndQueue("demo.001", "demo.queue.001", "demo.routing.*"); err != nil {
 		t.Fatal(err)
 	}
+
+	// new publish group
+	// bind publish group
+	pg, err := s.CreatePublishGroup("demo.pg.001", "demo.001")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//TODO new subscribe group
+	//TODO bind subscribe group
+	//TODO subscribe
+	//TODO publish
+	_ = pg
 }

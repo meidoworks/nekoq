@@ -10,9 +10,11 @@ type GeneralReq struct {
 	Operation string `json:"operation"`
 	RequestId string `json:"request_id"`
 
-	NewTopic   *TopicDef `json:"new_topic,omitempty"`
-	NewQueue   *QueueDef `json:"new_queue,omitempty"`
-	NewBinding *BindDef  `json:"new_binding,omitempty"`
+	NewTopic          *TopicDef          `json:"new_topic,omitempty"`
+	NewQueue          *QueueDef          `json:"new_queue,omitempty"`
+	NewBinding        *BindDef           `json:"new_binding,omitempty"`
+	NewPublishGroup   *PublishGroupDef   `json:"new_publish_group,omitempty"`
+	NewSubscribeGroup *SubscribeGroupDef `json:"new_subscribe_group,omitempty"`
 }
 
 type TopicDef struct {
@@ -31,8 +33,24 @@ type BindDef struct {
 	BindingKey string `json:"binding_key"`
 }
 
+type PublishGroupDef struct {
+	Topic        string `json:"topic"`
+	PublishGroup string `json:"publish_group"`
+}
+
+type SubscribeGroupDef struct {
+	Queue          string `json:"queue"`
+	SubscribeGroup string `json:"subscribe_group"`
+}
+
 type GeneralRes struct {
 	Status    string `json:"status"`
 	Info      string `json:"info"`
 	RequestId string `json:"request_id"`
+
+	PublishGroupResponse *PublishGroupRes `json:"publish_group_res,omitempty"`
+}
+
+type PublishGroupRes struct {
+	PublishGroup string `json:"publish_group"`
 }

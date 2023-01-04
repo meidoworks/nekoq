@@ -35,9 +35,58 @@ func dispatch(p *GeneralReq, f func() (io.WriteCloser, error)) error {
 			return err
 		}
 		return nil
+	case "new_publish_group":
+		res, err := handleNewPublishGroup(p)
+		log.Println("process new publish group completed")
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
+	case "new_subscribe_group":
+		//TODO
+		return nil
 	default:
 		return errors.New("unknown operation:" + p.Operation)
 	}
+}
+
+func handleNewPublishGroup(p *GeneralReq) (*GeneralRes, error) {
+	// validation
+	if p.NewPublishGroup == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	pgId, err := GetMetadataContainer().NewPublishGroup(p.NewPublishGroup.PublishGroup)
+	if err != nil {
+		log.Println("new publish group failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+	t := GetMetadataContainer().GetTopic(p.NewPublishGroup.Topic)
+	if t == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	tId := t.TopicId
+	_, err = GetBroker().DefineNewPublishGroup(pgId)
+	if err != nil && err != mqapi.ErrPublishGroupAlreadyExist {
+		log.Println("DefineNewPublishGroup failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+	if err := GetBroker().BindPublishGroupToTopic(pgId, tId); err != nil {
+		log.Println("BindPublishGroupToTopic failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+
+	// prepare output
+	res := newSuccessResponse(p.RequestId)
+	res.PublishGroupResponse = &PublishGroupRes{PublishGroup: p.NewPublishGroup.PublishGroup}
+
+	return res, nil
 }
 
 func handleBind(p *GeneralReq) (*GeneralRes, error) {

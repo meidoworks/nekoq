@@ -7,9 +7,11 @@ const (
 )
 
 const (
-	OperationNewTopic = "new_topic"
-	OperationNewQueue = "new_queue"
-	OperationBind     = "bind"
+	OperationNewTopic          = "new_topic"
+	OperationNewQueue          = "new_queue"
+	OperationBind              = "bind"
+	OperationNewPublishGroup   = "new_publish_group"
+	OperationNewSubscribeGroup = "new_subscribe_group"
 )
 
 type ServerSideIncoming struct {
@@ -17,6 +19,7 @@ type ServerSideIncoming struct {
 	Info      string `json:"info"`
 	RequestId string `json:"request_id"`
 
+	PublishGroupResponse *PublishGroupRes `json:"publish_group_res,omitempty"`
 	//TODO implement me
 	Message *interface{} `json:"message"`
 }
@@ -25,9 +28,11 @@ type ToServerSidePacket struct {
 	Operation string `json:"operation"`
 	RequestId string `json:"request_id"`
 
-	NewTopic   *NewTopicRequest `json:"new_topic,omitempty"`
-	NewQueue   *NewQueueRequest `json:"new_queue,omitempty"`
-	NewBinding *BindRequest     `json:"new_binding,omitempty"`
+	NewTopic                 *NewTopicRequest          `json:"new_topic,omitempty"`
+	NewQueue                 *NewQueueRequest          `json:"new_queue,omitempty"`
+	NewBinding               *BindRequest              `json:"new_binding,omitempty"`
+	NewPublishGroupRequest   *NewPublishGroupRequest   `json:"new_publish_group,omitempty"`
+	NewSubscribeGroupRequest *NewSubscribeGroupRequest `json:"new_subscribe_group,omitempty"`
 }
 
 type NewTopicRequest struct {
@@ -44,6 +49,20 @@ type BindRequest struct {
 	Topic      string `json:"topic"`
 	Queue      string `json:"queue"`
 	BindingKey string `json:"binding_key"`
+}
+
+type NewPublishGroupRequest struct {
+	Topic        string `json:"topic"`
+	PublishGroup string `json:"publish_group"`
+}
+
+type PublishGroupRes struct {
+	PublishGroup string `json:"publish_group"`
+}
+
+type NewSubscribeGroupRequest struct {
+	Queue          string `json:"queue"`
+	SubscribeGroup string `json:"subscribe_group"`
 }
 
 type PublishRequest struct {
