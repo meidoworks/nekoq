@@ -48,7 +48,7 @@ func (this *Broker) addTopic(topic *Topic) error {
 	return nil
 }
 
-func (this *Broker) DeleteTopic(topicId mqapi.TopicId) error {
+func (b *Broker) DeleteTopic(topicId mqapi.TopicId) error {
 	//TODO
 	return nil
 }
@@ -110,7 +110,7 @@ func (this *Broker) addQueue(queue *Queue) error {
 	return nil
 }
 
-func (this *Broker) DeleteQueue(queueId mqapi.QueueId) error {
+func (b *Broker) DeleteQueue(queueId mqapi.QueueId) error {
 	//TODO
 	return nil
 }
@@ -193,7 +193,7 @@ func (this *Broker) BindTopicAndQueue(topicId mqapi.TopicId, queueId mqapi.Queue
 	return nil
 }
 
-func (this *Broker) UnbindTopicAndQueue(topicId mqapi.TopicId, queueId mqapi.QueueId) error {
+func (b *Broker) UnbindTopicAndQueue(topicId mqapi.TopicId, queueId mqapi.QueueId) error {
 	//TODO
 	return nil
 }
@@ -222,7 +222,7 @@ func (this *Broker) addPublishGroup(publishGroup *PublishGroup) error {
 	return nil
 }
 
-func (this *Broker) DeletePublishGroup(publishGroupId mqapi.PublishGroupId) error {
+func (b *Broker) DeletePublishGroup(publishGroupId mqapi.PublishGroupId) error {
 	//TODO
 	return nil
 }
@@ -252,7 +252,7 @@ func (this *Broker) BindPublishGroupToTopic(publishGroupId mqapi.PublishGroupId,
 	return nil
 }
 
-func (this *Broker) UnbindPublishGroupFromTopic(publishGroupId mqapi.PublishGroupId, topic mqapi.TopicId) error {
+func (b *Broker) UnbindPublishGroupFromTopic(publishGroupId mqapi.PublishGroupId, topic mqapi.TopicId) error {
 	//TODO
 	return nil
 }
@@ -288,7 +288,7 @@ func (this *Broker) addSubscribeGroup(subscribeGroup *SubscribeGroup) error {
 	return nil
 }
 
-func (this *Broker) DeleteSubscribeGroup(subscribeGroupId mqapi.SubscribeGroupId) error {
+func (b *Broker) DeleteSubscribeGroup(subscribeGroupId mqapi.SubscribeGroupId) error {
 	//TODO
 	return nil
 }
@@ -338,7 +338,26 @@ func (this *Broker) BindSubscribeGroupToQueue(subscribeGroupId mqapi.SubscribeGr
 	return nil
 }
 
-func (this *Broker) UnbindSubscribeGroupFromQueue(subscribeGroupId mqapi.SubscribeGroupId, queueId mqapi.QueueId) error {
+func (b *Broker) UnbindSubscribeGroupFromQueue(subscribeGroupId mqapi.SubscribeGroupId, queueId mqapi.QueueId) error {
 	//TODO
 	return nil
+}
+
+func (b *Broker) GetSubscribeGroup(subscribeGroupId mqapi.SubscribeGroupId) mqapi.SubscribeGroup {
+	g := b.subscribeGroup
+	sg, ok := g[subscribeGroupId]
+	if ok {
+		return sg
+	} else {
+		return nil
+	}
+}
+func (b *Broker) GetPublishGroup(publishGroupId mqapi.PublishGroupId) mqapi.PublishGroup {
+	g := b.publishGroupMap
+	pg, ok := g[publishGroupId]
+	if ok {
+		return pg
+	} else {
+		return nil
+	}
 }

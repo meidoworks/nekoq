@@ -48,9 +48,14 @@ type GeneralRes struct {
 	Info      string `json:"info"`
 	RequestId string `json:"request_id"`
 
-	PublishGroupResponse *PublishGroupRes `json:"publish_group_res,omitempty"`
+	PublishGroupResponse   *PublishGroupRes   `json:"publish_group_res,omitempty"`
+	SubscribeGroupResponse *SubscribeGroupRes `json:"subscribe_group_res,omitempty"`
 }
 
 type PublishGroupRes struct {
 	PublishGroup string `json:"publish_group"`
+}
+
+type SubscribeGroupRes struct {
+	SubscribeGroup string `json:"subscribe_group"`
 }

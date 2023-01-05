@@ -3,6 +3,8 @@ package mqclient_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"testing"
 
 	"github.com/meidoworks/nekoq/clients/mqclient"
@@ -101,9 +103,16 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//TODO new subscribe group
-	//TODO bind subscribe group
-	//TODO subscribe
-	//TODO publish
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+		log.Println("receive message:" + fmt.Sprint(message))
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	//TODO publish & consume
 	_ = pg
 }

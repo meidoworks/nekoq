@@ -30,10 +30,21 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cid, err := idgenerator.Next()
+	if err != nil {
+		log.Println("generate id failed: " + fmt.Sprint(err))
+		c.Close(websocket.StatusInternalError, "internal error")
+		return
+	}
 	log.Println("new connection income:" + fmt.Sprint(r.RemoteAddr))
+	ch := newWsch(cid, c)
+
+	defer func() {
+		ch.cleanupWsChannel()
+	}()
 
 	for {
-		err = requestHandler(r.Context(), c)
+		err = requestHandler(r.Context(), ch)
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 			return
 		}
@@ -44,8 +55,8 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestHandler(ctx context.Context, c *websocket.Conn) error {
-	typ, r, err := c.Reader(ctx)
+func requestHandler(ctx context.Context, c *wsch) error {
+	typ, r, err := c.Conn.Reader(ctx)
 	if err != nil {
 		return err
 	}
@@ -63,9 +74,7 @@ func requestHandler(ctx context.Context, c *websocket.Conn) error {
 		return err
 	}
 
-	return dispatch(p, func() (io.WriteCloser, error) {
-		return c.Writer(context.Background(), websocket.MessageBinary)
-	})
+	return dispatch(p, c)
 }
 
 func respondPacket(p *GeneralRes, wc io.WriteCloser) error {

@@ -45,6 +45,8 @@ type metadataContainer struct {
 
 	publishGroupMap   map[string]mqapi.PublishGroupId
 	subscribeGroupMap map[string]mqapi.SubscribeGroupId
+	pgMap             map[string]mqapi.PublishGroup
+	sgMap             map[string]mqapi.SubscribeGroup
 	groupLock         sync.RWMutex
 }
 
@@ -54,6 +56,8 @@ func (m *metadataContainer) initMem() {
 	m.bindingMap = make(map[string][]*metaTopicAndQueueBinding)
 	m.publishGroupMap = make(map[string]mqapi.PublishGroupId)
 	m.subscribeGroupMap = make(map[string]mqapi.SubscribeGroupId)
+	m.pgMap = make(map[string]mqapi.PublishGroup)
+	m.sgMap = make(map[string]mqapi.SubscribeGroup)
 }
 
 func (m *metadataContainer) PrepareBroker() {
@@ -104,6 +108,86 @@ func (m *metadataContainer) GetTopic(t string) *metaTopic {
 		return tp
 	} else {
 		return nil
+	}
+}
+
+func (m *metadataContainer) GetQueue(q string) *metaQueue {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	qp, ok := m.queueMap[q]
+	if ok {
+		return qp
+	} else {
+		return nil
+	}
+}
+
+func (m *metadataContainer) InsertSg(sgName string, subscribeGroup mqapi.SubscribeGroup) bool {
+	m.groupLock.Lock()
+	defer m.groupLock.Unlock()
+
+	_, ok := m.sgMap[sgName]
+	if ok {
+		return false
+	} else {
+		m.sgMap[sgName] = subscribeGroup
+		return true
+	}
+}
+
+func (m *metadataContainer) GetSg(sgName string) mqapi.SubscribeGroup {
+	m.groupLock.RLock()
+	defer m.groupLock.RUnlock()
+
+	sg, ok := m.sgMap[sgName]
+	if ok {
+		return sg
+	} else {
+		return nil
+	}
+}
+
+func (m *metadataContainer) InsertPg(pgName string, publishGroup mqapi.PublishGroup) bool {
+	m.groupLock.Lock()
+	defer m.groupLock.Unlock()
+
+	_, ok := m.pgMap[pgName]
+	if ok {
+		return false
+	} else {
+		m.pgMap[pgName] = publishGroup
+		return true
+	}
+}
+
+func (m *metadataContainer) GetPg(pgName string) mqapi.PublishGroup {
+	m.groupLock.RLock()
+	defer m.groupLock.RUnlock()
+
+	pg, ok := m.pgMap[pgName]
+	if ok {
+		return pg
+	} else {
+		return nil
+	}
+}
+
+func (m *metadataContainer) NewSubscribeGroup(g string) (mqapi.SubscribeGroupId, error) {
+	i, err := idgenerator.Next()
+	if err != nil {
+		return mqapi.SubscribeGroupId{}, err
+	}
+
+	m.groupLock.Lock()
+	defer m.groupLock.Unlock()
+
+	r, ok := m.subscribeGroupMap[g]
+	if ok {
+		return r, nil
+	} else {
+		m.publishGroupMap[g] = mqapi.PublishGroupId(i)
+		return r, nil
 	}
 }
 

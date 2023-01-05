@@ -1,17 +1,73 @@
 package mq
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"sync"
 
 	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/shared/idgen"
+
+	"nhooyr.io/websocket"
 )
 
-func dispatch(p *GeneralReq, f func() (io.WriteCloser, error)) error {
+type wsch struct {
+	Cid  idgen.IdType
+	Conn *websocket.Conn
+
+	sgMap map[string]mqapi.SubscribeGroup
+	pgMap map[string]mqapi.PublishGroup
+	lock  sync.Mutex
+
+	closeCh   chan struct{}
+	closeOnce sync.Once
+}
+
+func (w *wsch) sgWorker(sgName string, queueName string, sg mqapi.SubscribeGroup) {
+	// newly subscribed - start working
+	w.lock.Lock()
+	existing, ok := w.sgMap[sgName]
+	if ok {
+		return // exit
+	}
+	w.sgMap[sgName] = sg
+	existing = sg
+	w.lock.Unlock()
+
+	log.Println("start sgWorker for ch:" + fmt.Sprint(w.Cid))
+SgWorkerLoop:
+	for {
+		select {
+		case <-w.closeCh:
+			break SgWorkerLoop
+		case m := <-existing.SubscribeChannel():
+			w.writeMessage(m)
+		case m := <-existing.ReleaseChannel():
+			w.writeReleasingMessage(m)
+		}
+	}
+}
+
+func newWsch(cid idgen.IdType, conn *websocket.Conn) *wsch {
+	return &wsch{
+		Cid:     cid,
+		Conn:    conn,
+		sgMap:   make(map[string]mqapi.SubscribeGroup),
+		pgMap:   make(map[string]mqapi.PublishGroup),
+		closeCh: make(chan struct{}),
+	}
+}
+
+func dispatch(p *GeneralReq, c *wsch) error {
 	log.Println("dispatch request:")
 	DebugJsonPrint(p)
+
+	f := func() (io.WriteCloser, error) {
+		return c.Conn.Writer(context.Background(), websocket.MessageBinary)
+	}
 
 	switch p.Operation {
 	case "new_topic":
@@ -43,11 +99,81 @@ func dispatch(p *GeneralReq, f func() (io.WriteCloser, error)) error {
 		}
 		return nil
 	case "new_subscribe_group":
-		//TODO
+		res, err := handleNewSubscribeGroup(p, c)
+		log.Println("process new subscribe group completed")
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
 		return nil
 	default:
 		return errors.New("unknown operation:" + p.Operation)
 	}
+}
+
+func (ch *wsch) cleanupWsChannel() {
+	ch.closeOnce.Do(func() {
+		log.Println("cleanupWsChannel closeCh closed")
+		close(ch.closeCh)
+	})
+}
+
+func (w *wsch) writeMessage(m mqapi.SubChanElem) {
+	//TODO implement me!!!!!!!!!!!!!
+}
+
+func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem) {
+	//TODO implement me!!!!!!!!!!!!!
+}
+
+func handleNewSubscribeGroup(p *GeneralReq, c *wsch) (*GeneralRes, error) {
+	// validation
+	if p.NewSubscribeGroup == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	sgId, err := GetMetadataContainer().NewSubscribeGroup(p.NewSubscribeGroup.SubscribeGroup)
+	if err != nil {
+		log.Println("new subscribe group failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+	q := GetMetadataContainer().GetQueue(p.NewSubscribeGroup.Queue)
+	if q == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	sg, err := GetBroker().DefineNewSubscribeGroup(sgId, &mqapi.SubscribeGroupOption{
+		SubscribeChannelSize: 1024,
+	})
+	if err != nil && err != mqapi.ErrSubscribeGroupAlreadyExist {
+		log.Println("DefineNewSubscribeGroup failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+	if err := GetBroker().BindSubscribeGroupToQueue(sgId, q.QueueId); err != nil {
+		log.Println("BindSubscribeGroupToQueue failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+	if sg == nil { // sg will be nil if already exists
+		sg = GetBroker().GetSubscribeGroup(sgId)
+		if sg == nil {
+			log.Println("unexpected nil of subscribeGroup")
+			res := newFailedResponse("500", "internal error", p.RequestId)
+			return res, nil
+		}
+	}
+	GetMetadataContainer().InsertSg(p.NewSubscribeGroup.SubscribeGroup, sg)
+	// node subscribe part
+	go c.sgWorker(p.NewSubscribeGroup.SubscribeGroup, p.NewSubscribeGroup.Queue, sg)
+
+	// prepare output
+	res := newSuccessResponse(p.RequestId)
+	res.SubscribeGroupResponse = &SubscribeGroupRes{SubscribeGroup: p.NewSubscribeGroup.SubscribeGroup}
+
+	return res, nil
 }
 
 func handleNewPublishGroup(p *GeneralReq) (*GeneralRes, error) {
@@ -70,7 +196,7 @@ func handleNewPublishGroup(p *GeneralReq) (*GeneralRes, error) {
 		return res, nil
 	}
 	tId := t.TopicId
-	_, err = GetBroker().DefineNewPublishGroup(pgId)
+	pg, err := GetBroker().DefineNewPublishGroup(pgId)
 	if err != nil && err != mqapi.ErrPublishGroupAlreadyExist {
 		log.Println("DefineNewPublishGroup failed: " + fmt.Sprint(err))
 		res := newFailedResponse("500", "internal error", p.RequestId)
@@ -81,6 +207,15 @@ func handleNewPublishGroup(p *GeneralReq) (*GeneralRes, error) {
 		res := newFailedResponse("500", "internal error", p.RequestId)
 		return res, nil
 	}
+	if pg == nil { // pg will be nil if already exists
+		pg = GetBroker().GetPublishGroup(pgId)
+		if pg == nil {
+			log.Println("unexpected nil of publishGroup")
+			res := newFailedResponse("500", "internal error", p.RequestId)
+			return res, nil
+		}
+	}
+	GetMetadataContainer().InsertPg(p.NewPublishGroup.PublishGroup, pg)
 
 	// prepare output
 	res := newSuccessResponse(p.RequestId)

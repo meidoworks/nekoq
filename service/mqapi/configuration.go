@@ -44,12 +44,12 @@ type SubscribeGroupOption struct {
 
 type SubChanElem struct {
 	Request     *Request
-	Queue       Queue
+	Queue       Queue //FIXME should not expose kernel component to the api
 	QueueRecord *QueueRecord
 }
 
 type ReleaseChanElem struct {
 	Request     *Request
-	Queue       Queue
+	Queue       Queue //FIXME should not expose kernel component to the api
 	QueueRecord *QueueRecord
 }

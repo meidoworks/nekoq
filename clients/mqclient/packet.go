@@ -1,5 +1,7 @@
 package mqclient
 
+import "github.com/meidoworks/nekoq/shared/idgen"
+
 const (
 	DeliveryTypeAtMostOnce  = "at_most_once"
 	DeliveryTypeAtLeastOnce = "at_least_once"
@@ -19,7 +21,8 @@ type ServerSideIncoming struct {
 	Info      string `json:"info"`
 	RequestId string `json:"request_id"`
 
-	PublishGroupResponse *PublishGroupRes `json:"publish_group_res,omitempty"`
+	PublishGroupResponse   *PublishGroupRes   `json:"publish_group_res,omitempty"`
+	SubscribeGroupResponse *SubscribeGroupRes `json:"subscribe_group_res,omitempty"`
 	//TODO implement me
 	Message *interface{} `json:"message"`
 }
@@ -60,9 +63,20 @@ type PublishGroupRes struct {
 	PublishGroup string `json:"publish_group"`
 }
 
+type SubscribeGroupRes struct {
+	SubscribeGroup string `json:"subscribe_group"`
+}
+
 type NewSubscribeGroupRequest struct {
 	Queue          string `json:"queue"`
 	SubscribeGroup string `json:"subscribe_group"`
+}
+
+type Message struct {
+	Topic     string
+	Queue     string
+	MessageId idgen.IdType
+	Payload   []byte
 }
 
 type PublishRequest struct {

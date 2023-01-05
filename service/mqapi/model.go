@@ -56,6 +56,9 @@ type brokerManagement interface {
 	DeleteSubscribeGroup(subscribeGroupId SubscribeGroupId) error
 	BindSubscribeGroupToQueue(subscribeGroupId SubscribeGroupId, queueId QueueId) error
 	UnbindSubscribeGroupFromQueue(subscribeGroupId SubscribeGroupId, queueId QueueId) error
+
+	GetSubscribeGroup(subscribeGroupId SubscribeGroupId) SubscribeGroup
+	GetPublishGroup(publishGroupId PublishGroupId) PublishGroup
 }
 
 type Broker interface {

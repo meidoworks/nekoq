@@ -188,7 +188,7 @@ func (c *Session) CreatePublishGroup(publishGroupName, topic string) (PublishGro
 			return nil, errors.New("bind failed from server:" + fmt.Sprint(r.Status))
 		}
 		if r.PublishGroupResponse.PublishGroup != publishGroupName {
-			return nil, errors.New("publish group names doesn't match")
+			return nil, errors.New("publish group names don't match")
 		}
 		pg := new(publishGroupImpl)
 		pg.Session = c
@@ -198,9 +198,41 @@ func (c *Session) CreatePublishGroup(publishGroupName, topic string) (PublishGro
 	}
 }
 
-func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, sg SubscribeGroup) error {
-	//TODO implement me
-	panic("implement me")
+func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, s Subscribe) error {
+	sp := new(NewSubscribeGroupRequest)
+	sp.SubscribeGroup = subscribeGroup
+	sp.Queue = queue
+
+	req := new(ToServerSidePacket)
+	req.NewSubscribeGroupRequest = sp
+	req.Operation = OperationNewSubscribeGroup
+	id, err := c.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := c.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		log.Println("receive response from server:" + fmt.Sprint(r))
+		if r.Status != "200" {
+			return errors.New("create subscribe group failed from server:" + fmt.Sprint(r.Status))
+		}
+		if r.SubscribeGroupResponse.SubscribeGroup != subscribeGroup {
+			return errors.New("subscribe group names don't match")
+		}
+	}
+
+	// pump message from remote source
+	go func() {
+		//TODO implement me!!!!!!!!!!!!!!!!!!!!!!
+		//TODO close this subscribe when session closed or actively close the subscription
+	}()
+
+	return nil
 }
 
 func (c *Session) CreateRpcStub(methodTopic, bindingKey string, encoder Codec) RpcStub {
@@ -238,8 +270,10 @@ type publishGroupImpl struct {
 }
 
 type SubscribeGroup interface {
-	Handle() error //TODO
+	//TODO
 }
+
+type Subscribe func(message *Message, sg SubscribeGroup) error
 
 type RpcStub interface {
 	Call(req interface{}) (interface{}, error)
