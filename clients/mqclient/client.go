@@ -256,8 +256,10 @@ func (c *Session) Close(ctx context.Context) error {
 }
 
 type PublishGroup interface {
-	//TODO publish methods
-	//Publish()
+	// Publish for publishing message in at most once & at least once modes
+	Publish(payload []byte, bindingKey string) error
+	//PrePublish(payload []byte) error
+	//CommitPublish() error
 
 	//TODO AddReplyHandler(h func() error) error
 }
@@ -267,6 +269,36 @@ type publishGroupImpl struct {
 	PublishGroup string
 
 	*Session
+}
+
+func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) error {
+	mp := new(NewMessageRequest)
+	mp.BindingKey = bindingKey
+	mp.PublishGroup = p.PublishGroup
+	mp.Topic = p.Topic
+	mp.Payload = payload
+
+	req := new(ToServerSidePacket)
+	req.NewMessageRequest = mp
+	req.Operation = OperationNewMessage
+	id, err := p.Session.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := p.Session.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		log.Println("receive response from server:" + fmt.Sprint(r))
+		if r.Status != "200" {
+			return errors.New("new message from server:" + fmt.Sprint(r.Status))
+		}
+	}
+
+	return nil
 }
 
 type SubscribeGroup interface {

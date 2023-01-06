@@ -14,6 +14,7 @@ const (
 	OperationBind              = "bind"
 	OperationNewPublishGroup   = "new_publish_group"
 	OperationNewSubscribeGroup = "new_subscribe_group"
+	OperationNewMessage        = "new_message"
 )
 
 type ServerSideIncoming struct {
@@ -27,6 +28,14 @@ type ServerSideIncoming struct {
 	Message *interface{} `json:"message"`
 }
 
+type PublishGroupRes struct {
+	PublishGroup string `json:"publish_group"`
+}
+
+type SubscribeGroupRes struct {
+	SubscribeGroup string `json:"subscribe_group"`
+}
+
 type ToServerSidePacket struct {
 	Operation string `json:"operation"`
 	RequestId string `json:"request_id"`
@@ -36,6 +45,7 @@ type ToServerSidePacket struct {
 	NewBinding               *BindRequest              `json:"new_binding,omitempty"`
 	NewPublishGroupRequest   *NewPublishGroupRequest   `json:"new_publish_group,omitempty"`
 	NewSubscribeGroupRequest *NewSubscribeGroupRequest `json:"new_subscribe_group,omitempty"`
+	NewMessageRequest        *NewMessageRequest        `json:"new_message,omitempty"`
 }
 
 type NewTopicRequest struct {
@@ -59,17 +69,17 @@ type NewPublishGroupRequest struct {
 	PublishGroup string `json:"publish_group"`
 }
 
-type PublishGroupRes struct {
-	PublishGroup string `json:"publish_group"`
-}
-
-type SubscribeGroupRes struct {
-	SubscribeGroup string `json:"subscribe_group"`
-}
-
 type NewSubscribeGroupRequest struct {
 	Queue          string `json:"queue"`
 	SubscribeGroup string `json:"subscribe_group"`
+}
+
+type NewMessageRequest struct {
+	Topic        string `json:"topic"`
+	PublishGroup string `json:"publish_group"`
+	BindingKey   string `json:"binding_key"`
+
+	Payload []byte `json:"payload"`
 }
 
 type Message struct {

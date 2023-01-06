@@ -99,6 +99,32 @@ func (m *metadataContainer) PrepareBroker() {
 	}
 }
 
+func (m *metadataContainer) FilterOutBindingTag(topic, messageBindingKey string) []mqapi.TagId {
+	bds := m.getTopicBindings(topic)
+	if len(bds) == 0 {
+		return nil
+	}
+	var tags []mqapi.TagId
+	for _, v := range bds {
+		if matchBindingKey(v.BindingKey, messageBindingKey) {
+			tags = append(tags, v.Tag)
+		}
+	}
+	return tags
+}
+
+func (m *metadataContainer) getTopicBindings(t string) []*metaTopicAndQueueBinding {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	bds, ok := m.bindingMap[t]
+	if ok {
+		return bds
+	} else {
+		return nil
+	}
+}
+
 func (m *metadataContainer) GetTopic(t string) *metaTopic {
 	m.lock.RLock()
 	defer m.lock.RUnlock()

@@ -105,6 +105,13 @@ func dispatch(p *GeneralReq, c *wsch) error {
 			return err
 		}
 		return nil
+	case "new_message":
+		res, err := handleNewMessage(p)
+		log.Println("process new message group completed")
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
 	default:
 		return errors.New("unknown operation:" + p.Operation)
 	}
@@ -123,6 +130,55 @@ func (w *wsch) writeMessage(m mqapi.SubChanElem) {
 
 func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem) {
 	//TODO implement me!!!!!!!!!!!!!
+}
+
+func newDefaultCtx() *mqapi.Ctx {
+	return &mqapi.Ctx{Context: context.Background()}
+}
+
+func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
+	// validation
+	if p.NewMessage == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	pg := GetMetadataContainer().GetPg(p.NewMessage.PublishGroup)
+	if pg == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	t := GetMetadataContainer().GetTopic(p.NewMessage.Topic)
+	if t == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	var tags = GetMetadataContainer().FilterOutBindingTag(p.NewMessage.Topic, p.NewMessage.BindingKey)
+	msg := &mqapi.Request{
+		Header: mqapi.Header{
+			TopicId:       t.TopicId,
+			DeliveryLevel: mqapi.AtMostOnce,
+			Tags:          tags,
+		},
+		BatchMessage: []mqapi.Message{
+			{
+				MessageId: mqapi.MessageId{
+					MsgId: mqapi.MsgId{0, 0},
+					OutId: mqapi.OutId{1, 1},
+				},
+			},
+		},
+	}
+	if err := pg.PublishMessage(msg, newDefaultCtx()); err != nil {
+		log.Println("PublishMessage failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+
+	// prepare output
+	res := newSuccessResponse(p.RequestId)
+	return res, nil
 }
 
 func handleNewSubscribeGroup(p *GeneralReq, c *wsch) (*GeneralRes, error) {

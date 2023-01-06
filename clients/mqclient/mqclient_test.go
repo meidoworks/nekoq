@@ -113,6 +113,8 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//TODO publish & consume
-	_ = pg
+	// publish & consume
+	if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+		t.Fatal(err)
+	}
 }

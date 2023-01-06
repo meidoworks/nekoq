@@ -15,6 +15,7 @@ type GeneralReq struct {
 	NewBinding        *BindDef           `json:"new_binding,omitempty"`
 	NewPublishGroup   *PublishGroupDef   `json:"new_publish_group,omitempty"`
 	NewSubscribeGroup *SubscribeGroupDef `json:"new_subscribe_group,omitempty"`
+	NewMessage        *MessageDef        `json:"new_message,omitempty"`
 }
 
 type TopicDef struct {
@@ -41,6 +42,14 @@ type PublishGroupDef struct {
 type SubscribeGroupDef struct {
 	Queue          string `json:"queue"`
 	SubscribeGroup string `json:"subscribe_group"`
+}
+
+type MessageDef struct {
+	Topic        string `json:"topic"`
+	PublishGroup string `json:"publish_group"`
+	BindingKey   string `json:"binding_key"`
+
+	Payload []byte `json:"payload"`
 }
 
 type GeneralRes struct {
