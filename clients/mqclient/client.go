@@ -32,6 +32,8 @@ type QueueOption struct {
 type Client struct {
 	addrList []string
 	idgen    *idgen.IdGen
+
+	debugFlag bool
 }
 
 func NewClient(addrs ...string) (*Client, error) {
@@ -45,6 +47,10 @@ func NewClient(addrs ...string) (*Client, error) {
 	}, nil
 }
 
+func (c *Client) SetDebug(debug bool) {
+	c.debugFlag = debug
+}
+
 func (c *Client) Connect(ctx context.Context) (*Session, error) {
 	//TODO need implement address failover
 	s := new(Session)
@@ -55,6 +61,7 @@ func (c *Client) Connect(ctx context.Context) (*Session, error) {
 		s.channel = ch
 	}
 	s.idgen = c.idgen
+	s.debugFlag = c.debugFlag
 	return s, nil
 }
 
@@ -62,6 +69,8 @@ type Session struct {
 	addressList []string
 	channel     *webChannel
 	idgen       *idgen.IdGen
+
+	debugFlag bool
 }
 
 func (c *Session) CreateTopic(topic string, topicOption TopicOption) error {
@@ -92,7 +101,9 @@ func (c *Session) CreateTopic(topic string, topicOption TopicOption) error {
 	} else {
 		//TODO max wait time on client side
 		r := <-ch
-		log.Println("receive response from server:" + fmt.Sprint(r))
+		if c.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
 		if r.Status != "200" {
 			return errors.New("create topic failed from server:" + fmt.Sprint(r.Status))
 		}
@@ -128,7 +139,9 @@ func (c *Session) CreateQueue(queue string, queueOption QueueOption) error {
 	} else {
 		//TODO max wait time on client side
 		r := <-ch
-		log.Println("receive response from server:" + fmt.Sprint(r))
+		if c.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
 		if r.Status != "200" {
 			return errors.New("create queue failed from server:" + fmt.Sprint(r.Status))
 		}
@@ -156,7 +169,9 @@ func (c *Session) BindTopicAndQueue(topic, queue, bindingKey string) error {
 	} else {
 		//TODO max wait time on client side
 		r := <-ch
-		log.Println("receive response from server:" + fmt.Sprint(r))
+		if c.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
 		if r.Status != "200" {
 			return errors.New("bind failed from server:" + fmt.Sprint(r.Status))
 		}
@@ -183,7 +198,9 @@ func (c *Session) CreatePublishGroup(publishGroupName, topic string) (PublishGro
 	} else {
 		//TODO max wait time on client side
 		r := <-ch
-		log.Println("receive response from server:" + fmt.Sprint(r))
+		if c.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
 		if r.Status != "200" {
 			return nil, errors.New("bind failed from server:" + fmt.Sprint(r.Status))
 		}
@@ -217,7 +234,9 @@ func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, s Subscribe
 	} else {
 		//TODO max wait time on client side
 		r := <-ch
-		log.Println("receive response from server:" + fmt.Sprint(r))
+		if c.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
 		if r.Status != "200" {
 			return errors.New("create subscribe group failed from server:" + fmt.Sprint(r.Status))
 		}
@@ -310,7 +329,9 @@ func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) error {
 	} else {
 		//TODO max wait time on client side
 		r := <-ch
-		log.Println("receive response from server:" + fmt.Sprint(r))
+		if p.Session.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
 		if r.Status != "200" {
 			return errors.New("new message from server:" + fmt.Sprint(r.Status))
 		}

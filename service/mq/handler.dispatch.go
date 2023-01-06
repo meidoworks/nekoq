@@ -67,8 +67,11 @@ func newWsch(cid idgen.IdType, conn *websocket.Conn) *wsch {
 }
 
 func dispatch(p *GeneralReq, c *wsch) error {
-	log.Println("dispatch request:")
-	DebugJsonPrint(p)
+	debugFlag := false
+	if debugFlag {
+		log.Println("dispatch request:")
+		DebugJsonPrint(p)
+	}
 
 	f := func() (io.WriteCloser, error) {
 		return c.Conn.Writer(context.Background(), websocket.MessageBinary)
@@ -77,42 +80,54 @@ func dispatch(p *GeneralReq, c *wsch) error {
 	switch p.Operation {
 	case "new_topic":
 		res, err := handleNewTopic(p)
-		log.Println("process new topic completed")
+		if debugFlag {
+			log.Println("process new topic completed")
+		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
 		return nil
 	case "new_queue":
 		res, err := handleNewQueue(p)
-		log.Println("process new queue completed")
+		if debugFlag {
+			log.Println("process new queue completed")
+		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
 		return nil
 	case "bind":
 		res, err := handleBind(p)
-		log.Println("process bind completed")
+		if debugFlag {
+			log.Println("process bind completed")
+		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
 		return nil
 	case "new_publish_group":
 		res, err := handleNewPublishGroup(p)
-		log.Println("process new publish group completed")
+		if debugFlag {
+			log.Println("process new publish group completed")
+		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
 		return nil
 	case "new_subscribe_group":
 		res, err := handleNewSubscribeGroup(p, c)
-		log.Println("process new subscribe group completed")
+		if debugFlag {
+			log.Println("process new subscribe group completed")
+		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}
 		return nil
 	case "new_message":
 		res, err := handleNewMessage(p)
-		log.Println("process new message group completed")
+		if debugFlag {
+			log.Println("process new message group completed")
+		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
 		}

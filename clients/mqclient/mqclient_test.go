@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
@@ -73,6 +74,7 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	c.SetDebug(true)
 
 	s, err := c.Connect(context.Background())
 	if err != nil {
@@ -121,4 +123,54 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 	}
 
 	time.Sleep(2 * time.Second)
+}
+
+func BenchmarkSession_CreateAtMostOnce(b *testing.B) {
+
+	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	s, err := c.Connect(context.Background())
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer s.Close(context.Background())
+
+	// new publish group
+	// bind publish group
+	pg, err := s.CreatePublishGroup("demo.pg.001", "demo.001")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	wg := new(sync.WaitGroup)
+	wg.Add(b.N)
+
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+		//log.Println("receive message:" + fmt.Sprint(message))
+		//log.Println(string(message.Payload))
+		if message != nil && len(message.Payload) > 0 {
+			wg.Done()
+		} else {
+			log.Println("message is not valid")
+		}
+		return nil
+	}); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// publish & consume
+		if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+			b.Fatal(err)
+		}
+	}
+	wg.Wait()
+	b.StopTimer()
 }
