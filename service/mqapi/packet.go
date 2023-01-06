@@ -14,7 +14,9 @@ type MessageId struct {
 
 type Message struct {
 	MessageId
-	Body Body
+
+	Attributes map[string][]string
+	Body       Body
 }
 
 type Header struct {

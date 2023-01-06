@@ -25,6 +25,9 @@ type webChannel struct {
 
 	requestLock  sync.Mutex
 	requestIdMap map[string]*_request
+
+	SgServerMessageChannels map[string]chan *ServerSideIncoming
+	ChannelMapLock          sync.RWMutex
 }
 
 func newChannel(address string) (*webChannel, error) {
@@ -42,6 +45,7 @@ func newChannel(address string) (*webChannel, error) {
 	ch.Conn = c
 	ch.closeCh = make(chan struct{})
 	ch.requestIdMap = make(map[string]*_request)
+	ch.SgServerMessageChannels = make(map[string]chan *ServerSideIncoming)
 	go ch.dispatchLoop() // start dispatch loop
 	return ch, nil
 }
@@ -102,6 +106,11 @@ DispatchLoop:
 				continue DispatchLoop
 			}
 
+			if s.IncomingOperation != nil {
+				w.processIncomingOperation(s)
+				continue
+			}
+
 			w.requestLock.Lock()
 			r, ok := w.requestIdMap[s.RequestId]
 			w.requestLock.Unlock()
@@ -138,4 +147,21 @@ func (w *webChannel) close() error {
 		close(w.closeCh)
 	}
 	return w.Conn.Close(websocket.StatusNormalClosure, "close operation")
+}
+
+func (w *webChannel) processIncomingOperation(s *ServerSideIncoming) {
+	switch *s.IncomingOperation {
+	case IncomingOperationMessage:
+		sgName := s.Message.SubscribeGroup
+		w.ChannelMapLock.RLock()
+		ch, ok := w.SgServerMessageChannels[sgName]
+		w.ChannelMapLock.RUnlock()
+		if !ok {
+			log.Println("cannot find subscribeGroup channel:" + fmt.Sprint(sgName))
+			return
+		}
+		ch <- s
+	default:
+		log.Println("unknown incoming operation:" + (*s.IncomingOperation))
+	}
 }

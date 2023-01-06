@@ -17,6 +17,10 @@ const (
 	OperationNewMessage        = "new_message"
 )
 
+const (
+	IncomingOperationMessage = "message"
+)
+
 type ServerSideIncoming struct {
 	Status    string `json:"status"`
 	Info      string `json:"info"`
@@ -24,8 +28,9 @@ type ServerSideIncoming struct {
 
 	PublishGroupResponse   *PublishGroupRes   `json:"publish_group_res,omitempty"`
 	SubscribeGroupResponse *SubscribeGroupRes `json:"subscribe_group_res,omitempty"`
-	//TODO implement me
-	Message *interface{} `json:"message"`
+
+	IncomingOperation *string  `json:"operation,omitempty"`
+	Message           *Message `json:"message,omitempty"`
 }
 
 type PublishGroupRes struct {
@@ -83,10 +88,12 @@ type NewMessageRequest struct {
 }
 
 type Message struct {
-	Topic     string
-	Queue     string
-	MessageId idgen.IdType
-	Payload   []byte
+	Topic          string       `json:"topic"`
+	Queue          string       `json:"queue"`
+	BindingKey     string       `json:"binding_key"`
+	SubscribeGroup string       `json:"subscribe_group"`
+	MessageId      idgen.IdType `json:"message_id"`
+	Payload        []byte       `json:"payload"`
 }
 
 type PublishRequest struct {

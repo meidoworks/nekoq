@@ -1,9 +1,17 @@
 package mq
 
+import (
+	"github.com/meidoworks/nekoq/service/mqapi"
+)
+
 const (
 	DeliveryTypeAtMostOnce  = "at_most_once"
 	DeliveryTypeAtLeastOnce = "at_least_once"
 	DeliveryTypeExactlyOnce = "exactly_once"
+)
+
+const (
+	ResponseOperationMessage = "message"
 )
 
 type GeneralReq struct {
@@ -59,6 +67,9 @@ type GeneralRes struct {
 
 	PublishGroupResponse   *PublishGroupRes   `json:"publish_group_res,omitempty"`
 	SubscribeGroupResponse *SubscribeGroupRes `json:"subscribe_group_res,omitempty"`
+
+	Operation      *string         `json:"operation,omitempty"`
+	WrittenMessage *WrittenMessage `json:"message,omitempty"`
 }
 
 type PublishGroupRes struct {
@@ -67,4 +78,13 @@ type PublishGroupRes struct {
 
 type SubscribeGroupRes struct {
 	SubscribeGroup string `json:"subscribe_group"`
+}
+
+type WrittenMessage struct {
+	Topic          string      `json:"topic"`
+	Queue          string      `json:"queue"`
+	BindingKey     string      `json:"binding_key"`
+	SubscribeGroup string      `json:"subscribe_group"`
+	MessageId      mqapi.MsgId `json:"message_id"`
+	Payload        []byte      `json:"payload"`
 }

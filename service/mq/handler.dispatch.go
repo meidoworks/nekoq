@@ -14,6 +14,11 @@ import (
 	"nhooyr.io/websocket"
 )
 
+const (
+	MessageAttrTopic      = "nekoq.topic"
+	MessageAttrBindingKey = "nekoq.binding_key"
+)
+
 type wsch struct {
 	Cid  idgen.IdType
 	Conn *websocket.Conn
@@ -44,9 +49,9 @@ SgWorkerLoop:
 		case <-w.closeCh:
 			break SgWorkerLoop
 		case m := <-existing.SubscribeChannel():
-			w.writeMessage(m)
+			w.writeMessage(m, sgName)
 		case m := <-existing.ReleaseChannel():
-			w.writeReleasingMessage(m)
+			w.writeReleasingMessage(m, sgName)
 		}
 	}
 }
@@ -124,11 +129,43 @@ func (ch *wsch) cleanupWsChannel() {
 	})
 }
 
-func (w *wsch) writeMessage(m mqapi.SubChanElem) {
-	//TODO implement me!!!!!!!!!!!!!
+func (w *wsch) writeMessage(m mqapi.SubChanElem, sgName string) {
+	if len(m.Request.BatchMessage) <= 0 {
+		log.Println("empty batch message list")
+		return
+	}
+
+	for _, v := range m.Request.BatchMessage {
+		res := new(GeneralRes)
+		res.Status = "200"
+		res.Info = "message"
+		wm := new(WrittenMessage)
+		res.WrittenMessage = wm
+		op := ResponseOperationMessage
+		res.Operation = &op
+
+		wm.Payload = v.Body
+		wm.MessageId = v.MsgId
+
+		//FIXME all of the three should not be nil
+		t := v.Attributes[MessageAttrTopic][0]
+		b := v.Attributes[MessageAttrBindingKey][0]
+		q := GetMetadataContainer().GetQueueById(m.Queue.QueueId()).Queue
+		wm.Topic = t
+		wm.BindingKey = b
+		wm.Queue = q
+		wm.SubscribeGroup = sgName
+
+		if err := handleResponse(res, nil, func() (io.WriteCloser, error) {
+			return w.Conn.Writer(context.Background(), websocket.MessageBinary)
+		}); err != nil {
+			log.Println("writeMessage failed:" + fmt.Sprint(err))
+		}
+	}
+
 }
 
-func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem) {
+func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem, sgName string) {
 	//TODO implement me!!!!!!!!!!!!!
 }
 
@@ -155,6 +192,12 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 		return res, nil
 	}
 	var tags = GetMetadataContainer().FilterOutBindingTag(p.NewMessage.Topic, p.NewMessage.BindingKey)
+	outId, err := idgenerator.Next()
+	if err != nil {
+		log.Println("generate outId failed:" + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
 	msg := &mqapi.Request{
 		Header: mqapi.Header{
 			TopicId:       t.TopicId,
@@ -164,9 +207,13 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 		BatchMessage: []mqapi.Message{
 			{
 				MessageId: mqapi.MessageId{
-					MsgId: mqapi.MsgId{0, 0},
-					OutId: mqapi.OutId{1, 1},
+					OutId: mqapi.OutId(outId),
 				},
+				Attributes: map[string][]string{
+					MessageAttrTopic:      {p.NewMessage.Topic},
+					MessageAttrBindingKey: {p.NewMessage.BindingKey},
+				},
+				Body: p.NewMessage.Payload,
 			},
 		},
 	}
@@ -177,7 +224,7 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 	}
 
 	// prepare output
-	res := newSuccessResponse(p.RequestId)
+	res := newSuccessResponse(p.RequestId, "new_message")
 	return res, nil
 }
 
@@ -226,7 +273,7 @@ func handleNewSubscribeGroup(p *GeneralReq, c *wsch) (*GeneralRes, error) {
 	go c.sgWorker(p.NewSubscribeGroup.SubscribeGroup, p.NewSubscribeGroup.Queue, sg)
 
 	// prepare output
-	res := newSuccessResponse(p.RequestId)
+	res := newSuccessResponse(p.RequestId, "new_subscribe_group")
 	res.SubscribeGroupResponse = &SubscribeGroupRes{SubscribeGroup: p.NewSubscribeGroup.SubscribeGroup}
 
 	return res, nil
@@ -274,7 +321,7 @@ func handleNewPublishGroup(p *GeneralReq) (*GeneralRes, error) {
 	GetMetadataContainer().InsertPg(p.NewPublishGroup.PublishGroup, pg)
 
 	// prepare output
-	res := newSuccessResponse(p.RequestId)
+	res := newSuccessResponse(p.RequestId, "new_publish_group")
 	res.PublishGroupResponse = &PublishGroupRes{PublishGroup: p.NewPublishGroup.PublishGroup}
 
 	return res, nil
@@ -305,7 +352,7 @@ func handleBind(p *GeneralReq) (*GeneralRes, error) {
 	}
 
 	// prepare output
-	return newSuccessResponse(p.RequestId), nil
+	return newSuccessResponse(p.RequestId, "new_binding"), nil
 }
 
 func handleNewQueue(p *GeneralReq) (*GeneralRes, error) {
@@ -333,7 +380,7 @@ func handleNewQueue(p *GeneralReq) (*GeneralRes, error) {
 		_, err := GetBroker().DefineNewQueue(id, to)
 		if err != nil && err == mqapi.ErrQueueAlreadyExist {
 			// skip on topic existing to make the define operation idempotent
-			return newSuccessResponse(p.RequestId), nil
+			return newSuccessResponse(p.RequestId, "new_queue"), nil
 		} else if err != nil {
 			log.Println("broker returns error:" + fmt.Sprint(err))
 			return newFailedResponse("500", "internal error", p.RequestId), nil
@@ -341,7 +388,7 @@ func handleNewQueue(p *GeneralReq) (*GeneralRes, error) {
 	}
 
 	// prepare output
-	return newSuccessResponse(p.RequestId), nil
+	return newSuccessResponse(p.RequestId, "new_queue"), nil
 }
 
 func handleNewTopic(p *GeneralReq) (*GeneralRes, error) {
@@ -368,7 +415,7 @@ func handleNewTopic(p *GeneralReq) (*GeneralRes, error) {
 		_, err := GetBroker().DefineNewTopic(id, to)
 		if err != nil && err == mqapi.ErrTopicAlreadyExist {
 			// skip on topic existing to make the define operation idempotent
-			return newSuccessResponse(p.RequestId), nil
+			return newSuccessResponse(p.RequestId, "new_topic"), nil
 		} else if err != nil {
 			log.Println("broker returns error:" + fmt.Sprint(err))
 			return newFailedResponse("500", "internal error", p.RequestId), nil
@@ -376,7 +423,7 @@ func handleNewTopic(p *GeneralReq) (*GeneralRes, error) {
 	}
 
 	// prepare output
-	return newSuccessResponse(p.RequestId), nil
+	return newSuccessResponse(p.RequestId, "new_topic"), nil
 }
 
 func handleResponse(res *GeneralRes, err error, f func() (io.WriteCloser, error)) error {
@@ -419,10 +466,10 @@ func newFailedResponse(code, info, requestId string) *GeneralRes {
 	return res
 }
 
-func newSuccessResponse(requestId string) *GeneralRes {
+func newSuccessResponse(requestId string, opType string) *GeneralRes {
 	res := new(GeneralRes)
 	res.Status = "200"
-	res.Info = "operation success"
+	res.Info = "operation success:" + fmt.Sprint(opType)
 	res.RequestId = requestId
 	return res
 }

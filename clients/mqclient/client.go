@@ -225,11 +225,29 @@ func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, s Subscribe
 			return errors.New("subscribe group names don't match")
 		}
 	}
+	c.channel.ChannelMapLock.Lock()
+	sgCh, ok := c.channel.SgServerMessageChannels[subscribeGroup]
+	if !ok {
+		sgCh = make(chan *ServerSideIncoming, 1024)
+		c.channel.SgServerMessageChannels[subscribeGroup] = sgCh
+	}
+	c.channel.ChannelMapLock.Unlock()
 
 	// pump message from remote source
 	go func() {
-		//TODO implement me!!!!!!!!!!!!!!!!!!!!!!
-		//TODO close this subscribe when session closed or actively close the subscription
+	PumpMessageFromServerLoop:
+		for {
+			select {
+			// close this subscribe when session closed or actively close the subscription
+			case <-c.channel.closeCh:
+				break PumpMessageFromServerLoop
+			case incoming := <-sgCh:
+				//FIXME need have a valid SubscribeGroup
+				if err := s(incoming.Message, nil); err != nil {
+					log.Println("handle Subscribe callback failed:" + fmt.Sprint(err))
+				}
+			}
+		}
 	}()
 
 	return nil

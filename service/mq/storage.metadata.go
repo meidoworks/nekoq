@@ -39,6 +39,7 @@ type metadataContainer struct {
 
 	topicMap   map[string]*metaTopic
 	queueMap   map[string]*metaQueue
+	queueIdMap map[mqapi.QueueId]*metaQueue
 	bindingMap map[string][]*metaTopicAndQueueBinding
 
 	lock sync.RWMutex
@@ -53,6 +54,7 @@ type metadataContainer struct {
 func (m *metadataContainer) initMem() {
 	m.topicMap = make(map[string]*metaTopic)
 	m.queueMap = make(map[string]*metaQueue)
+	m.queueIdMap = make(map[mqapi.QueueId]*metaQueue)
 	m.bindingMap = make(map[string][]*metaTopicAndQueueBinding)
 	m.publishGroupMap = make(map[string]mqapi.PublishGroupId)
 	m.subscribeGroupMap = make(map[string]mqapi.SubscribeGroupId)
@@ -75,6 +77,7 @@ func (m *metadataContainer) PrepareBroker() {
 	// load queue
 	for _, v := range m.Queues {
 		m.queueMap[v.Queue] = v
+		m.queueIdMap[v.QueueId] = v
 		to := &mqapi.QueueOption{
 			DeliveryLevel: convertDeliveryLevelType(v.DeliveryLevelType),
 			QueueType:     "memory", //FIXME should be configured on demand
@@ -110,6 +113,7 @@ func (m *metadataContainer) FilterOutBindingTag(topic, messageBindingKey string)
 			tags = append(tags, v.Tag)
 		}
 	}
+	//FIXME need deduplicate the queue ids
 	return tags
 }
 
@@ -142,6 +146,18 @@ func (m *metadataContainer) GetQueue(q string) *metaQueue {
 	defer m.lock.RUnlock()
 
 	qp, ok := m.queueMap[q]
+	if ok {
+		return qp
+	} else {
+		return nil
+	}
+}
+
+func (m *metadataContainer) GetQueueById(id mqapi.QueueId) *metaQueue {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	qp, ok := m.queueIdMap[id]
 	if ok {
 		return qp
 	} else {
@@ -353,6 +369,7 @@ func (m *metadataContainer) newQueue0(t *QueueDef) (mqapi.QueueId, bool, error) 
 	}
 	m.Queues = append(m.Queues, mqi)
 	m.queueMap[t.Queue] = mqi
+	m.queueIdMap[mqi.QueueId] = mqi
 
 	return mqi.QueueId, true, nil
 }

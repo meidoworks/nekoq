@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/meidoworks/nekoq/clients/mqclient"
 )
@@ -108,6 +109,7 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 	// subscribe
 	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
 		log.Println("receive message:" + fmt.Sprint(message))
+		log.Println(string(message.Payload))
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -117,4 +119,6 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 	if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
 		t.Fatal(err)
 	}
+
+	time.Sleep(2 * time.Second)
 }
