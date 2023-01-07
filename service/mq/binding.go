@@ -7,8 +7,8 @@ import (
 )
 
 func validateBindingKey(key string) bool {
-	//TODO validate binding key in binding flow
-	return true
+	// validate binding key in binding flow
+	return ValidateNameForBrokerMechanismsWithWildcard(key)
 }
 
 func validateMatchingBindingKey(key string) bool {
