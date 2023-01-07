@@ -67,7 +67,7 @@ func newWsch(cid idgen.IdType, conn *websocket.Conn) *wsch {
 }
 
 func dispatch(p *GeneralReq, c *wsch) error {
-	debugFlag := false
+	const debugFlag = false
 	if debugFlag {
 		log.Println("dispatch request:")
 		DebugJsonPrint(p)

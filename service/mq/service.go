@@ -7,10 +7,22 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"time"
 )
 
 func Run(listener string) error {
+	if false {
+		f, err := os.Create("cpu.pprof")
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		// pprof for CPU
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	if err := InitBroker(); err != nil {
 		return err
 	}
