@@ -1,6 +1,8 @@
 package mqclient
 
-import "github.com/meidoworks/nekoq/shared/idgen"
+import (
+	"github.com/meidoworks/nekoq/shared/idgen"
+)
 
 const (
 	DeliveryTypeAtMostOnce  = "at_most_once"
@@ -15,6 +17,7 @@ const (
 	OperationNewPublishGroup   = "new_publish_group"
 	OperationNewSubscribeGroup = "new_subscribe_group"
 	OperationNewMessage        = "new_message"
+	OperationAckMessage        = "ack_message"
 )
 
 const (
@@ -51,6 +54,7 @@ type ToServerSidePacket struct {
 	NewPublishGroupRequest   *NewPublishGroupRequest   `json:"new_publish_group,omitempty"`
 	NewSubscribeGroupRequest *NewSubscribeGroupRequest `json:"new_subscribe_group,omitempty"`
 	NewMessageRequest        *NewMessageRequest        `json:"new_message,omitempty"`
+	NewAckMessage            *AckMessage               `json:"ack_message,omitempty"`
 }
 
 type NewTopicRequest struct {
@@ -87,6 +91,12 @@ type NewMessageRequest struct {
 	Payload []byte `json:"payload"`
 }
 
+type AckMessage struct {
+	SubscribeGroup string       `json:"subscribe_group"`
+	Queue          string       `json:"queue"`
+	MessageId      idgen.IdType `json:"message_id"`
+}
+
 type Message struct {
 	Topic          string       `json:"topic"`
 	Queue          string       `json:"queue"`
@@ -94,6 +104,10 @@ type Message struct {
 	SubscribeGroup string       `json:"subscribe_group"`
 	MessageId      idgen.IdType `json:"message_id"`
 	Payload        []byte       `json:"payload"`
+
+	// immutable values
+	queue     string
+	messageId idgen.IdType
 }
 
 type PublishRequest struct {

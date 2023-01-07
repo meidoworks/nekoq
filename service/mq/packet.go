@@ -2,6 +2,7 @@ package mq
 
 import (
 	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
 const (
@@ -24,6 +25,7 @@ type GeneralReq struct {
 	NewPublishGroup   *PublishGroupDef   `json:"new_publish_group,omitempty"`
 	NewSubscribeGroup *SubscribeGroupDef `json:"new_subscribe_group,omitempty"`
 	NewMessage        *MessageDef        `json:"new_message,omitempty"`
+	AckMessage        *AckDef            `json:"ack_message,omitempty"`
 }
 
 type TopicDef struct {
@@ -60,6 +62,12 @@ type MessageDef struct {
 	Payload []byte `json:"payload"`
 }
 
+type AckDef struct {
+	SubscribeGroup string      `json:"subscribe_group"`
+	Queue          string      `json:"queue"`
+	MessageId      mqapi.MsgId `json:"message_id"`
+}
+
 type GeneralRes struct {
 	Status    string `json:"status"`
 	Info      string `json:"info"`
@@ -67,6 +75,8 @@ type GeneralRes struct {
 
 	PublishGroupResponse   *PublishGroupRes   `json:"publish_group_res,omitempty"`
 	SubscribeGroupResponse *SubscribeGroupRes `json:"subscribe_group_res,omitempty"`
+
+	NewMessageResponse *NewMessageRes `json:"new_message,omitempty"`
 
 	Operation      *string         `json:"operation,omitempty"`
 	WrittenMessage *WrittenMessage `json:"message,omitempty"`
@@ -78,6 +88,13 @@ type PublishGroupRes struct {
 
 type SubscribeGroupRes struct {
 	SubscribeGroup string `json:"subscribe_group"`
+}
+
+type NewMessageRes struct {
+	MessageIdList []struct {
+		MsgId idgen.IdType `json:"msg_id"`
+		OutId idgen.IdType `json:"out_id"`
+	} `json:"message_id_list"`
 }
 
 type WrittenMessage struct {

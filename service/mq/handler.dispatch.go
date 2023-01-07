@@ -132,6 +132,15 @@ func dispatch(p *GeneralReq, c *wsch) error {
 			return err
 		}
 		return nil
+	case "ack_message":
+		res, err := handleAckMessage(p)
+		if debugFlag {
+			log.Println("process ack message group completed")
+		}
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
 	default:
 		return errors.New("unknown operation:" + p.Operation)
 	}
@@ -188,6 +197,35 @@ func newDefaultCtx() *mqapi.Ctx {
 	return &mqapi.Ctx{Context: context.Background()}
 }
 
+func handleAckMessage(p *GeneralReq) (*GeneralRes, error) {
+	// validation
+	if p.AckMessage == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	sg := GetMetadataContainer().GetSg(p.AckMessage.SubscribeGroup)
+	if sg == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	q := GetMetadataContainer().GetQueue(p.AckMessage.Queue)
+	if q == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	err := sg.Commit(q.QueueId, nil, &mqapi.Ack{AckIdList: []mqapi.MessageId{{p.AckMessage.MessageId, mqapi.OutId{}}}})
+	if err != nil {
+		log.Println("commit message failed:" + fmt.Sprint(p.AckMessage.MessageId))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+
+	// prepare output
+	return newSuccessResponse(p.RequestId, "ack_message"), nil
+}
+
 func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 	// validation
 	if p.NewMessage == nil {
@@ -213,10 +251,22 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 		res := newFailedResponse("500", "internal error", p.RequestId)
 		return res, nil
 	}
+	var dlt mqapi.DeliveryLevelType
+	switch t.DeliveryLevelType {
+	case DeliveryTypeAtMostOnce:
+		dlt = mqapi.AtMostOnce
+	case DeliveryTypeAtLeastOnce:
+		dlt = mqapi.AtLeastOnce
+	case DeliveryTypeExactlyOnce:
+		dlt = mqapi.ExactlyOnce
+	default:
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
 	msg := &mqapi.Request{
 		Header: mqapi.Header{
 			TopicId:       t.TopicId,
-			DeliveryLevel: mqapi.AtMostOnce,
+			DeliveryLevel: dlt,
 			Tags:          tags,
 		},
 		BatchMessage: []mqapi.Message{
@@ -232,14 +282,42 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 			},
 		},
 	}
-	if err := pg.PublishMessage(msg, newDefaultCtx()); err != nil {
-		log.Println("PublishMessage failed: " + fmt.Sprint(err))
+	var acks mqapi.Ack
+	switch dlt {
+	case mqapi.AtMostOnce:
+		if err := pg.PublishMessage(msg, newDefaultCtx()); err != nil {
+			log.Println("PublishMessage failed: " + fmt.Sprint(err))
+			res := newFailedResponse("500", "internal error", p.RequestId)
+			return res, nil
+		}
+	case mqapi.AtLeastOnce:
+		if pres, err := pg.PublishGuaranteeMessage(msg, newDefaultCtx()); err != nil {
+			log.Println("PublishGuaranteeMessage failed: " + fmt.Sprint(err))
+			res := newFailedResponse("500", "internal error", p.RequestId)
+			return res, nil
+		} else {
+			acks = pres
+		}
+	case mqapi.ExactlyOnce:
+		//TODO support exactly once
 		res := newFailedResponse("500", "internal error", p.RequestId)
 		return res, nil
+	default:
+		panic(errors.New("should not reach here based on delivery type"))
 	}
 
 	// prepare output
 	res := newSuccessResponse(p.RequestId, "new_message")
+	if len(acks.AckIdList) > 0 {
+		res.NewMessageResponse = new(NewMessageRes)
+		for _, v := range acks.AckIdList {
+			res.NewMessageResponse.MessageIdList = append(res.NewMessageResponse.MessageIdList, struct {
+				MsgId idgen.IdType `json:"msg_id"`
+				OutId idgen.IdType `json:"out_id"`
+			}{MsgId: idgen.IdType(v.MsgId), OutId: idgen.IdType(v.OutId)})
+		}
+	}
+
 	return res, nil
 }
 

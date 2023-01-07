@@ -215,7 +215,9 @@ func (c *Session) CreatePublishGroup(publishGroupName, topic string) (PublishGro
 	}
 }
 
-func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, s Subscribe) error {
+// CreateSubscribeGroup bind the subscribeGroup to the queue and create/reuse subscribe callback
+// Note: for the same subscribeGroup, only the earliest subscribe will be registered
+func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, newSub Subscribe) error {
 	sp := new(NewSubscribeGroupRequest)
 	sp.SubscribeGroup = subscribeGroup
 	sp.Queue = queue
@@ -252,22 +254,32 @@ func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, s Subscribe
 	}
 	c.channel.ChannelMapLock.Unlock()
 
-	// pump message from remote source
-	go func() {
-	PumpMessageFromServerLoop:
-		for {
-			select {
-			// close this subscribe when session closed or actively close the subscription
-			case <-c.channel.closeCh:
-				break PumpMessageFromServerLoop
-			case incoming := <-sgCh:
-				//FIXME need have a valid SubscribeGroup
-				if err := s(incoming.Message, nil); err != nil {
-					log.Println("handle Subscribe callback failed:" + fmt.Sprint(err))
+	// pump message from remote source for the NEW sgCh
+	//FIXME this will cause only one subscribe could be effective on the same subscribeGroup
+	if !ok {
+		go func() {
+			sg := new(subscribeGroupImpl)
+			sg.subscribeGroup = subscribeGroup
+			sg.session = c
+
+		PumpMessageFromServerLoop:
+			for {
+				select {
+				// close this subscribe when session closed or actively close the subscription
+				case <-c.channel.closeCh:
+					break PumpMessageFromServerLoop
+				case incoming := <-sgCh:
+					// copy immutable values
+					incoming.Message.messageId = incoming.Message.MessageId
+					incoming.Message.queue = incoming.Message.Queue
+
+					if err := newSub(incoming.Message, sg); err != nil {
+						log.Println("handle Subscribe callback failed:" + fmt.Sprint(err))
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	return nil
 }
@@ -341,7 +353,43 @@ func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) error {
 }
 
 type SubscribeGroup interface {
-	//TODO
+	Commit(message *Message) error
+}
+
+type subscribeGroupImpl struct {
+	subscribeGroup string
+	session        *Session
+}
+
+func (s *subscribeGroupImpl) Commit(message *Message) error {
+	ap := new(AckMessage)
+	ap.Queue = message.queue
+	ap.SubscribeGroup = s.subscribeGroup
+	ap.MessageId = message.messageId
+
+	req := new(ToServerSidePacket)
+	req.NewAckMessage = ap
+	req.Operation = OperationAckMessage
+	id, err := s.session.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := s.session.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		if s.session.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
+		if r.Status != "200" {
+			return errors.New("new message from server:" + fmt.Sprint(r.Status))
+		}
+	}
+
+	return nil
 }
 
 type Subscribe func(message *Message, sg SubscribeGroup) error

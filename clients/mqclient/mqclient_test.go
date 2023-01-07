@@ -125,6 +125,66 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 	time.Sleep(2 * time.Second)
 }
 
+func TestSession_CreateAtLeastOnce(t *testing.T) {
+
+	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetDebug(true)
+
+	s, err := c.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close(context.Background())
+
+	err = s.CreateTopic("demo.002", mqclient.TopicOption{
+		DeliveryLevelType: mqclient.AtLeastOnce,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.CreateQueue("demo.queue.002", mqclient.QueueOption{
+		DeliveryLevelType: mqclient.AtLeastOnce,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.BindTopicAndQueue("demo.002", "demo.queue.002", "demo.routing.*"); err != nil {
+		t.Fatal(err)
+	}
+
+	// new publish group
+	// bind publish group
+	pg, err := s.CreatePublishGroup("demo.pg.002", "demo.002")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	if err := s.CreateSubscribeGroup("demo.sg.002", "demo.queue.002", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+		log.Println("receive message:" + fmt.Sprint(message))
+		log.Println(string(message.Payload))
+		if err := sg.Commit(message); err != nil {
+			log.Println("commit message error:" + fmt.Sprint(err))
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// publish & consume
+	if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(2 * time.Second)
+}
+
 func BenchmarkSession_CreateAtMostOnce(b *testing.B) {
 
 	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
