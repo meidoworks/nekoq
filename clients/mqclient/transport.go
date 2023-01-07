@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 type _request struct {
@@ -124,22 +125,7 @@ DispatchLoop:
 }
 
 func (w *webChannel) readObj(o *ServerSideIncoming) error {
-	if b, err := w._read(); err != nil {
-		return err
-	} else {
-		return json.Unmarshal(b, o)
-	}
-}
-
-func (w *webChannel) _read() ([]byte, error) {
-	t, data, err := w.Conn.Read(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	if t != websocket.MessageBinary {
-		return nil, errors.New("read data from websocket should be binary")
-	}
-	return data, nil
+	return wsjson.Read(context.Background(), w.Conn, o)
 }
 
 func (w *webChannel) close() error {

@@ -8,19 +8,39 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"runtime/trace"
 	"time"
 )
 
 func Run(listener string) error {
 	if false {
-		f, err := os.Create("cpu.pprof")
-		if err != nil {
-			panic(err)
+		const mode = 1
+		switch mode {
+		case 1:
+			f, err := os.Create("cpu.pprof")
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			// pprof for CPU
+			pprof.StartCPUProfile(f)
+			defer pprof.StopCPUProfile()
+		case 2:
+			f2, err2 := os.Create("trace.out")
+			if err2 != nil {
+				panic(err2)
+			}
+			defer f2.Close()
+
+			err2 = trace.Start(f2)
+			if err2 != nil {
+				panic(err2)
+			}
+			defer func() {
+				log.Println("stop trace.")
+				trace.Stop()
+			}()
 		}
-		defer f.Close()
-		// pprof for CPU
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
 	}
 
 	if err := InitBroker(); err != nil {

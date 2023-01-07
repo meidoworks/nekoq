@@ -3,13 +3,13 @@ package mq
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 
 	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 type messagingHandler struct {
@@ -56,21 +56,9 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func requestHandler(ctx context.Context, c *wsch) error {
-	typ, r, err := c.Conn.Reader(ctx)
-	if err != nil {
-		return err
-	}
-	if typ != websocket.MessageBinary {
-		return errors.New("message type is not binary")
-	}
-
-	fullData, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-
 	p := new(GeneralReq)
-	if err := json.Unmarshal(fullData, p); err != nil {
+	//FIXME may need check protocol type = MessageBinary
+	if err := wsjson.Read(context.Background(), c.Conn, p); err != nil {
 		return err
 	}
 
