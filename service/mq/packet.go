@@ -12,7 +12,8 @@ const (
 )
 
 const (
-	ResponseOperationMessage = "message"
+	ResponseOperationMessage          = "message"
+	ResponseOperationMessageReleasing = "message_releasing"
 )
 
 type GeneralReq struct {
@@ -27,6 +28,7 @@ type GeneralReq struct {
 	NewMessage        *MessageDef        `json:"new_message,omitempty"`
 	NewMessageCommit  *MessageDescDef    `json:"new_message_commit,omitempty"`
 	AckMessage        *AckDef            `json:"ack_message,omitempty"`
+	ReleaseMessage    *ReleaseDef        `json:"release_message,omitempty"`
 }
 
 type TopicDef struct {
@@ -79,6 +81,12 @@ type AckDef struct {
 	MessageId      mqapi.MsgId `json:"message_id"`
 }
 
+type ReleaseDef struct {
+	SubscribeGroup string      `json:"subscribe_group"`
+	Queue          string      `json:"queue"`
+	MessageId      mqapi.MsgId `json:"message_id"`
+}
+
 type GeneralRes struct {
 	Status    string `json:"status"`
 	Info      string `json:"info"`
@@ -89,8 +97,9 @@ type GeneralRes struct {
 
 	NewMessageResponse *NewMessageRes `json:"new_message,omitempty"`
 
-	Operation      *string         `json:"operation,omitempty"`
-	WrittenMessage *WrittenMessage `json:"message,omitempty"`
+	Operation               *string                  `json:"operation,omitempty"`
+	WrittenMessage          *WrittenMessage          `json:"message,omitempty"`
+	WrittenMessageReleasing *WrittenMessageReleasing `json:"message_releasing,omitempty"`
 }
 
 type PublishGroupRes struct {
@@ -117,4 +126,12 @@ type WrittenMessage struct {
 	SubscribeGroup string      `json:"subscribe_group"`
 	MessageId      mqapi.MsgId `json:"message_id"`
 	Payload        []byte      `json:"payload"`
+}
+
+type WrittenMessageReleasing struct {
+	Topic          string      `json:"topic"`
+	Queue          string      `json:"queue"`
+	BindingKey     string      `json:"binding_key"`
+	SubscribeGroup string      `json:"subscribe_group"`
+	MessageId      mqapi.MsgId `json:"message_id"`
 }

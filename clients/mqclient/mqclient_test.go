@@ -12,6 +12,19 @@ import (
 	"github.com/meidoworks/nekoq/clients/mqclient"
 )
 
+type stubSubscribe struct {
+	HandleMessage   func(message *mqclient.Message, sg mqclient.SubscribeGroup) error
+	HandleReleasing func(messageMeta *mqclient.MessageReleasing, sg mqclient.SubscribeGroup) error
+}
+
+func (s *stubSubscribe) OnMessage(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+	return s.HandleMessage(message, sg)
+}
+
+func (s *stubSubscribe) OnReleasing(messageMeta *mqclient.MessageReleasing, sg mqclient.SubscribeGroup) error {
+	return s.HandleReleasing(messageMeta, sg)
+}
+
 type sayHelloRpcCodec struct {
 }
 
@@ -106,14 +119,16 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// new subscribe group
-	// bind subscribe group
-	// subscribe
-	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+	sub := new(stubSubscribe)
+	sub.HandleMessage = func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
 		log.Println("receive message:" + fmt.Sprint(message))
 		log.Println(string(message.Payload))
 		return nil
-	}); err != nil {
+	}
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", sub); err != nil {
 		t.Fatal(err)
 	}
 
@@ -165,17 +180,19 @@ func TestSession_CreateAtLeastOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// new subscribe group
-	// bind subscribe group
-	// subscribe
-	if err := s.CreateSubscribeGroup("demo.sg.002", "demo.queue.002", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+	sub := new(stubSubscribe)
+	sub.HandleMessage = func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
 		log.Println("receive message:" + fmt.Sprint(message))
 		log.Println(string(message.Payload))
 		if err := sg.Commit(message); err != nil {
 			log.Println("commit message error:" + fmt.Sprint(err))
 		}
 		return nil
-	}); err != nil {
+	}
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	if err := s.CreateSubscribeGroup("demo.sg.002", "demo.queue.002", sub); err != nil {
 		t.Fatal(err)
 	}
 
@@ -227,18 +244,27 @@ func TestSession_CreateExactlyOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// new subscribe group
-	// bind subscribe group
-	// subscribe
-	//TODO support commit/release responses
-	if err := s.CreateSubscribeGroup("demo.sg.003", "demo.queue.003", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+	sub := new(stubSubscribe)
+	sub.HandleMessage = func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
 		log.Println("receive message:" + fmt.Sprint(message))
 		log.Println(string(message.Payload))
 		if err := sg.Commit(message); err != nil {
 			log.Println("commit message error:" + fmt.Sprint(err))
 		}
 		return nil
-	}); err != nil {
+	}
+	sub.HandleReleasing = func(messageMeta *mqclient.MessageReleasing, sg mqclient.SubscribeGroup) error {
+		log.Println("receive message metadata:" + fmt.Sprint(messageMeta))
+		if err := sg.Release(messageMeta); err != nil {
+			log.Println("release message error:" + fmt.Sprint(err))
+		}
+		return nil
+	}
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	// support commit/release responses
+	if err := s.CreateSubscribeGroup("demo.sg.003", "demo.queue.003", sub); err != nil {
 		t.Fatal(err)
 	}
 
@@ -281,10 +307,8 @@ func BenchmarkSession_CreateAtMostOnce(b *testing.B) {
 	wg := new(sync.WaitGroup)
 	wg.Add(b.N)
 
-	// new subscribe group
-	// bind subscribe group
-	// subscribe
-	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+	sub := new(stubSubscribe)
+	sub.HandleMessage = func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
 		//log.Println("receive message:" + fmt.Sprint(message))
 		//log.Println(string(message.Payload))
 		if message != nil && len(message.Payload) > 0 {
@@ -293,7 +317,11 @@ func BenchmarkSession_CreateAtMostOnce(b *testing.B) {
 			log.Println("message is not valid")
 		}
 		return nil
-	}); err != nil {
+	}
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	if err := s.CreateSubscribeGroup("demo.sg.001", "demo.queue.001", sub); err != nil {
 		b.Fatal(err)
 	}
 

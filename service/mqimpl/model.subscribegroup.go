@@ -73,9 +73,9 @@ func (this *SubscribeGroup) PumpReleasingLoop(record *mqapi.QueueRecord, queue *
 	errCnt := 0
 	obtainFailRetryInterval := this.obtainFailRetryInterval
 	for {
-		result, err := queue.BatchObtainReleased(record, 16, nil)
+		result, err := queue.BatchObtainReleasing(record, 16, nil)
 		if err != nil {
-			LogError("subscribeGroup loop error while BatchObtainReleased:", err)
+			LogError("subscribeGroup loop error while BatchObtainReleasing:", err)
 			if result.Requests != nil && len(result.Requests) > 0 {
 				// fall through and process messages
 			} else {

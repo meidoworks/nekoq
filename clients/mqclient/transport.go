@@ -27,8 +27,9 @@ type webChannel struct {
 	requestLock  sync.Mutex
 	requestIdMap map[string]*_request
 
-	SgServerMessageChannels map[string]chan *ServerSideIncoming
-	ChannelMapLock          sync.RWMutex
+	SgServerMessageChannels          map[string]chan *ServerSideIncoming
+	SgServerMessageReleasingChannels map[string]chan *ServerSideIncoming
+	ChannelMapLock                   sync.RWMutex
 }
 
 func newChannel(address string) (*webChannel, error) {
@@ -47,6 +48,7 @@ func newChannel(address string) (*webChannel, error) {
 	ch.closeCh = make(chan struct{})
 	ch.requestIdMap = make(map[string]*_request)
 	ch.SgServerMessageChannels = make(map[string]chan *ServerSideIncoming)
+	ch.SgServerMessageReleasingChannels = make(map[string]chan *ServerSideIncoming)
 	go ch.dispatchLoop() // start dispatch loop
 	return ch, nil
 }
@@ -143,7 +145,17 @@ func (w *webChannel) processIncomingOperation(s *ServerSideIncoming) {
 		ch, ok := w.SgServerMessageChannels[sgName]
 		w.ChannelMapLock.RUnlock()
 		if !ok {
-			log.Println("cannot find subscribeGroup channel:" + fmt.Sprint(sgName))
+			log.Println("cannot find subscribeGroup message channel:" + fmt.Sprint(sgName))
+			return
+		}
+		ch <- s
+	case IncomingOperationMessageReleasing:
+		sgName := s.MessageReleasing.SubscribeGroup
+		w.ChannelMapLock.RLock()
+		ch, ok := w.SgServerMessageReleasingChannels[sgName]
+		w.ChannelMapLock.RUnlock()
+		if !ok {
+			log.Println("cannot find subscribeGroup releasing channel:" + fmt.Sprint(sgName))
 			return
 		}
 		ch <- s

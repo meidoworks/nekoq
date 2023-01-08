@@ -19,7 +19,7 @@ type QueueType interface {
 
 	CreateRecord(subscribeGroupId SubscribeGroupId, ctx *Ctx) (*QueueRecord, error)
 	BatchObtain(record *QueueRecord, maxCnt int, ctx *Ctx) (BatchObtainResult, error)
-	BatchObtainReleased(record *QueueRecord, maxCnt int, ctx *Ctx) (BatchObtainResult, error)
+	BatchObtainReleasing(record *QueueRecord, maxCnt int, ctx *Ctx) (BatchObtainResult, error)
 	ConfirmConsumed(record *QueueRecord, ack *Ack) error
 	ReleaseConsumed(record *QueueRecord, ack *Ack) error
 

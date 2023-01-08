@@ -150,6 +150,15 @@ func dispatch(p *GeneralReq, c *wsch) error {
 			return err
 		}
 		return nil
+	case "release_message":
+		res, err := handleReleaseMessage(p)
+		if debugFlag {
+			log.Println("process ack message completed")
+		}
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
 	default:
 		return errors.New("unknown operation:" + p.Operation)
 	}
@@ -199,11 +208,71 @@ func (w *wsch) writeMessage(m mqapi.SubChanElem, sgName string) {
 }
 
 func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem, sgName string) {
-	//TODO implement me!!!!!!!!!!!!!
+	if len(m.Request.BatchMessage) <= 0 {
+		log.Println("empty batch message list")
+		return
+	}
+
+	for _, v := range m.Request.BatchMessage {
+		res := new(GeneralRes)
+		res.Status = "200"
+		res.Info = "message"
+		wm := new(WrittenMessageReleasing)
+		res.WrittenMessageReleasing = wm
+		op := ResponseOperationMessageReleasing
+		res.Operation = &op
+
+		wm.MessageId = v.MsgId
+
+		//FIXME all of the three should not be nil
+		t := v.Attributes[MessageAttrTopic][0]
+		b := v.Attributes[MessageAttrBindingKey][0]
+		q := GetMetadataContainer().GetQueueById(m.Queue.QueueId()).Queue
+		wm.Topic = t
+		wm.BindingKey = b
+		wm.Queue = q
+		wm.SubscribeGroup = sgName
+
+		if err := handleResponse(res, nil, func() (io.WriteCloser, error) {
+			return w.Conn.Writer(context.Background(), websocket.MessageBinary)
+		}); err != nil {
+			log.Println("writeReleasingMessage failed:" + fmt.Sprint(err))
+		}
+	}
+
 }
 
 func newDefaultCtx() *mqapi.Ctx {
 	return &mqapi.Ctx{Context: context.Background()}
+}
+
+func handleReleaseMessage(p *GeneralReq) (*GeneralRes, error) {
+	// validation
+	if p.ReleaseMessage == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	sg := GetMetadataContainer().GetSg(p.ReleaseMessage.SubscribeGroup)
+	if sg == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	q := GetMetadataContainer().GetQueue(p.ReleaseMessage.Queue)
+	if q == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	err := sg.Release(q.QueueId, nil, &mqapi.Ack{AckIdList: []mqapi.MessageId{{p.ReleaseMessage.MessageId, mqapi.OutId{}}}})
+	if err != nil {
+		log.Println("commit message failed:" + fmt.Sprint(p.ReleaseMessage.MessageId))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	}
+
+	// prepare output
+	return newSuccessResponse(p.RequestId, "release_message"), nil
 }
 
 func handleAckMessage(p *GeneralReq) (*GeneralRes, error) {

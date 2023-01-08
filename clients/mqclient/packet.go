@@ -19,10 +19,12 @@ const (
 	OperationNewMessage        = "new_message"
 	OperationAckMessage        = "ack_message"
 	OperationNewMessageCommit  = "new_message_commit"
+	OperationReleaseMessage    = "release_message"
 )
 
 const (
-	IncomingOperationMessage = "message"
+	IncomingOperationMessage          = "message"
+	IncomingOperationMessageReleasing = "message_releasing"
 )
 
 type ServerSideIncoming struct {
@@ -35,8 +37,9 @@ type ServerSideIncoming struct {
 
 	NewMessageResponse *NewMessageRes `json:"new_message,omitempty"`
 
-	IncomingOperation *string  `json:"operation,omitempty"`
-	Message           *Message `json:"message,omitempty"`
+	IncomingOperation *string           `json:"operation,omitempty"`
+	Message           *Message          `json:"message,omitempty"`
+	MessageReleasing  *MessageReleasing `json:"message_releasing,omitempty"`
 }
 
 type PublishGroupRes struct {
@@ -70,6 +73,7 @@ type ToServerSidePacket struct {
 	NewMessageRequest        *NewMessageRequest        `json:"new_message,omitempty"`
 	NewAckMessage            *AckMessage               `json:"ack_message,omitempty"`
 	NewMessageCommitRequest  *MessageDesc              `json:"new_message_commit,omitempty"`
+	NewReleaseMessage        *ReleaseMessage           `json:"release_message,omitempty"`
 }
 
 type NewTopicRequest struct {
@@ -112,6 +116,12 @@ type AckMessage struct {
 	MessageId      idgen.IdType `json:"message_id"`
 }
 
+type ReleaseMessage struct {
+	SubscribeGroup string       `json:"subscribe_group"`
+	Queue          string       `json:"queue"`
+	MessageId      idgen.IdType `json:"message_id"`
+}
+
 type MessageDesc struct {
 	MessageIdList []MessageId `json:"message_id_list"`
 	Topic         string      `json:"topic"`
@@ -132,8 +142,14 @@ type Message struct {
 	messageId idgen.IdType
 }
 
-type PublishRequest struct {
-	Topic      string
-	BindingKey string
-	Payload    []byte
+type MessageReleasing struct {
+	Topic          string       `json:"topic"`
+	Queue          string       `json:"queue"`
+	BindingKey     string       `json:"binding_key"`
+	SubscribeGroup string       `json:"subscribe_group"`
+	MessageId      idgen.IdType `json:"message_id"`
+
+	// immutable values
+	queue     string
+	messageId idgen.IdType
 }

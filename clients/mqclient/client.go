@@ -252,6 +252,11 @@ func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, newSub Subs
 		sgCh = make(chan *ServerSideIncoming, 1024)
 		c.channel.SgServerMessageChannels[subscribeGroup] = sgCh
 	}
+	sgRCh, ok := c.channel.SgServerMessageReleasingChannels[subscribeGroup]
+	if !ok {
+		sgRCh = make(chan *ServerSideIncoming, 1024)
+		c.channel.SgServerMessageReleasingChannels[subscribeGroup] = sgRCh
+	}
 	c.channel.ChannelMapLock.Unlock()
 
 	// pump message from remote source for the NEW sgCh
@@ -273,8 +278,16 @@ func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, newSub Subs
 					incoming.Message.messageId = incoming.Message.MessageId
 					incoming.Message.queue = incoming.Message.Queue
 
-					if err := newSub(incoming.Message, sg); err != nil {
-						log.Println("handle Subscribe callback failed:" + fmt.Sprint(err))
+					if err := newSub.OnMessage(incoming.Message, sg); err != nil {
+						log.Println("handle OnMessage callback failed:" + fmt.Sprint(err))
+					}
+				case incomingReleasing := <-sgRCh:
+					// copy immutable values
+					incomingReleasing.MessageReleasing.messageId = incomingReleasing.MessageReleasing.MessageId
+					incomingReleasing.MessageReleasing.queue = incomingReleasing.MessageReleasing.Queue
+
+					if err := newSub.OnReleasing(incomingReleasing.MessageReleasing, sg); err != nil {
+						log.Println("handle OnReleasing callback failed:" + fmt.Sprint(err))
 					}
 				}
 			}
@@ -388,6 +401,7 @@ func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) (*MessageD
 
 type SubscribeGroup interface {
 	Commit(message *Message) error
+	Release(messageMeta *MessageReleasing) error
 }
 
 type subscribeGroupImpl struct {
@@ -426,7 +440,41 @@ func (s *subscribeGroupImpl) Commit(message *Message) error {
 	return nil
 }
 
-type Subscribe func(message *Message, sg SubscribeGroup) error
+func (s *subscribeGroupImpl) Release(messageMeta *MessageReleasing) error {
+	ap := new(ReleaseMessage)
+	ap.Queue = messageMeta.queue
+	ap.SubscribeGroup = s.subscribeGroup
+	ap.MessageId = messageMeta.messageId
+
+	req := new(ToServerSidePacket)
+	req.NewReleaseMessage = ap
+	req.Operation = OperationReleaseMessage
+	id, err := s.session.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := s.session.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		if s.session.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
+		if r.Status != "200" {
+			return errors.New("release message to server:" + fmt.Sprint(r.Status))
+		}
+	}
+
+	return nil
+}
+
+type Subscribe interface {
+	OnMessage(message *Message, sg SubscribeGroup) error
+	OnReleasing(messageMeta *MessageReleasing, sg SubscribeGroup) error
+}
 
 type RpcStub interface {
 	Call(req interface{}) (interface{}, error)

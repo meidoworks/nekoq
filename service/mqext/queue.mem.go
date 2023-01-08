@@ -29,54 +29,54 @@ type MemQueue struct {
 	Queue mqapi.Queue
 }
 
-func (this *MemQueue) Close(ctx context.Context) error {
+func (m *MemQueue) Close(ctx context.Context) error {
 	//TODO
 	return nil
 }
 
-func (this *MemQueue) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
-	return this.PublishMessage(req, ctx)
+func (m *MemQueue) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
+	return m.PublishMessage(req, ctx)
 }
 
-func (this *MemQueue) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
-	switch this.DeliveryLevel {
+func (m *MemQueue) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
+	switch m.DeliveryLevel {
 	case mqapi.AtMostOnce:
 		fallthrough
 	case mqapi.AtLeastOnce:
-		ch := this.MessageChannel
+		ch := m.MessageChannel
 		for _, msg := range req.BatchMessage {
 			ch <- msg
 		}
 		return nil
 	case mqapi.ExactlyOnce:
 		//TODO need ttl
-		this.PrePubMapLock.Lock()
+		m.PrePubMapLock.Lock()
 		for _, msg := range req.BatchMessage {
-			_, ok := this.PrePubMapWithOutId[msg.OutId]
+			_, ok := m.PrePubMapWithOutId[msg.OutId]
 			// check dup flag
 			if ok && req.Header.Dup {
 				continue
 			}
 			// store pre-pub message
-			this.PrePubMapWithOutId[msg.OutId] = msg
+			m.PrePubMapWithOutId[msg.OutId] = msg
 		}
 		//TODO clear timeout message
-		this.PrePubMapLock.Unlock()
+		m.PrePubMapLock.Unlock()
 		return nil
 	default:
 		return mqapi.ErrDeliveryLevelUnknown
 	}
 }
 
-func (this *MemQueue) CommitMessages(commit *mqapi.MessageCommit, ctx *mqapi.Ctx) error {
-	if this.DeliveryLevel != mqapi.ExactlyOnce {
+func (m *MemQueue) CommitMessages(commit *mqapi.MessageCommit, ctx *mqapi.Ctx) error {
+	if m.DeliveryLevel != mqapi.ExactlyOnce {
 		return mqapi.ErrDeliveryLevelIllegalOperation
 	}
-	prepubMap := this.PrePubMapWithOutId
-	ch := this.MessageChannel
+	prepubMap := m.PrePubMapWithOutId
+	ch := m.MessageChannel
 	msgs := make([]mqapi.Message, 0, len(commit.AckIdList))
 
-	this.PrePubMapLock.Lock()
+	m.PrePubMapLock.Lock()
 	for _, msgId := range commit.AckIdList {
 		msg, ok := prepubMap[msgId.OutId]
 		if ok {
@@ -85,7 +85,7 @@ func (this *MemQueue) CommitMessages(commit *mqapi.MessageCommit, ctx *mqapi.Ctx
 		}
 	}
 	//TODO clear timeout message
-	this.PrePubMapLock.Unlock()
+	m.PrePubMapLock.Unlock()
 
 	for _, msg := range msgs {
 		ch <- msg
@@ -93,23 +93,23 @@ func (this *MemQueue) CommitMessages(commit *mqapi.MessageCommit, ctx *mqapi.Ctx
 	return nil
 }
 
-func (this *MemQueue) CreateRecord(subscribeGroupId mqapi.SubscribeGroupId, ctx *mqapi.Ctx) (*mqapi.QueueRecord, error) {
+func (m *MemQueue) CreateRecord(subscribeGroupId mqapi.SubscribeGroupId, ctx *mqapi.Ctx) (*mqapi.QueueRecord, error) {
 	//TODO need support
 	return nil, nil
 }
 
-func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mqapi.Ctx) (mqapi.BatchObtainResult, error) {
+func (m *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mqapi.Ctx) (mqapi.BatchObtainResult, error) {
 	//TODO need support record
-	switch this.DeliveryLevel {
+	switch m.DeliveryLevel {
 	case mqapi.AtMostOnce:
-		ch := this.MessageChannel
+		ch := m.MessageChannel
 		result := mqapi.BatchObtainResult{
 			Requests: []*mqapi.Request{
 				{},
 			},
 		}
 		req := result.Requests[0]
-	AT_MOST_ONCE_LOOP:
+	AtMostOnceLoop:
 		for i := 0; i < maxCnt; i++ {
 			select {
 			case msg := <-ch:
@@ -118,7 +118,7 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 				if len(req.BatchMessage) == 0 {
 					req.BatchMessage = append(req.BatchMessage, <-ch)
 				} else {
-					break AT_MOST_ONCE_LOOP
+					break AtMostOnceLoop
 				}
 			}
 		}
@@ -126,7 +126,7 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 	case mqapi.AtLeastOnce:
 	AtLeastOnceMainLoop:
 		for {
-			ch := this.MessageChannel
+			ch := m.MessageChannel
 			result := mqapi.BatchObtainResult{
 				Requests: []*mqapi.Request{
 					{},
@@ -138,38 +138,38 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 
 			// check inflight messages
 			now := time.Now()
-			if now.Sub(this.lastRedeliveryTime) >= time.Duration(this.RedeliverIntervalTime)*time.Second {
+			if now.Sub(m.lastRedeliveryTime) >= time.Duration(m.RedeliverIntervalTime)*time.Second {
 				// pump messages from inflight map
-				this.InflightMessageLock.Lock()
-				for k, v := range this.InflightMessageMap {
-					delete(this.InflightMessageMap, k)
+				m.InflightMessageLock.Lock()
+				for k, v := range m.InflightMessageMap {
+					delete(m.InflightMessageMap, k)
 					req.BatchMessage = append(req.BatchMessage, v)
 					cnt++
 					if cnt >= maxCnt {
 						break
 					}
 				}
-				this.InflightMessageLock.Unlock()
+				m.InflightMessageLock.Unlock()
 			}
-			this.lastRedeliveryTime = now
+			m.lastRedeliveryTime = now
 
 			// pump messages from messageChannel
-		AT_LEAST_ONCE_LOOP:
+		AtLeastOnceLoop:
 			for ; cnt < maxCnt; cnt++ {
 				select {
 				case msg := <-ch:
-					this.InflightMessageLock.Lock()
-					this.InflightMessageMap[msg.MsgId] = msg
-					this.InflightMessageLock.Unlock()
+					m.InflightMessageLock.Lock()
+					m.InflightMessageMap[msg.MsgId] = msg
+					m.InflightMessageLock.Unlock()
 					req.BatchMessage = append(req.BatchMessage, msg)
 				default:
 					if len(req.BatchMessage) == 0 {
-						t := time.NewTimer(time.Duration(this.RedeliverIntervalTime) * time.Second)
+						t := time.NewTimer(time.Duration(m.RedeliverIntervalTime) * time.Second)
 						select {
 						case msg := <-ch:
-							this.InflightMessageLock.Lock()
-							this.InflightMessageMap[msg.MsgId] = msg
-							this.InflightMessageLock.Unlock()
+							m.InflightMessageLock.Lock()
+							m.InflightMessageMap[msg.MsgId] = msg
+							m.InflightMessageLock.Unlock()
 							req.BatchMessage = append(req.BatchMessage, msg)
 							t.Stop()
 						case <-t.C:
@@ -177,7 +177,7 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 							continue AtLeastOnceMainLoop
 						}
 					} else {
-						break AT_LEAST_ONCE_LOOP
+						break AtLeastOnceLoop
 					}
 				}
 			}
@@ -186,7 +186,7 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 	case mqapi.ExactlyOnce:
 	ExactlyOnceMainLoop:
 		for {
-			ch := this.MessageChannel
+			ch := m.MessageChannel
 			result := mqapi.BatchObtainResult{
 				Requests: []*mqapi.Request{
 					{},
@@ -198,19 +198,19 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 
 			// check inflight messages
 			now := time.Now()
-			if now.Sub(this.lastRedeliveryTime) >= time.Duration(this.RedeliverIntervalTime)*time.Second {
+			if now.Sub(m.lastRedeliveryTime) >= time.Duration(m.RedeliverIntervalTime)*time.Second {
 				// pump messages from inflight map
-				this.InflightMessageLock.Lock()
-				for _, v := range this.InflightMessageMap {
+				m.InflightMessageLock.Lock()
+				for _, v := range m.InflightMessageMap {
 					req.BatchMessage = append(req.BatchMessage, v)
 					cnt++
 					if cnt >= maxCnt {
 						break
 					}
 				}
-				this.InflightMessageLock.Unlock()
+				m.InflightMessageLock.Unlock()
 			}
-			this.lastRedeliveryTime = now
+			m.lastRedeliveryTime = now
 
 			// set dup flag
 			if len(req.BatchMessage) > 0 {
@@ -221,22 +221,22 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 			}
 
 			// pump messages from messageChannel
-		EXACTLY_ONCE_LOOP:
+		ExactlyOnceLoop:
 			for ; cnt < maxCnt; cnt++ {
 				select {
 				case msg := <-ch:
-					this.InflightMessageLock.Lock()
-					this.InflightMessageMap[msg.MsgId] = msg
-					this.InflightMessageLock.Unlock()
+					m.InflightMessageLock.Lock()
+					m.InflightMessageMap[msg.MsgId] = msg
+					m.InflightMessageLock.Unlock()
 					req.BatchMessage = append(req.BatchMessage, msg)
 				default:
 					if len(req.BatchMessage) == 0 {
-						t := time.NewTimer(time.Duration(this.RedeliverIntervalTime) * time.Second)
+						t := time.NewTimer(time.Duration(m.RedeliverIntervalTime) * time.Second)
 						select {
 						case msg := <-ch:
-							this.InflightMessageLock.Lock()
-							this.InflightMessageMap[msg.MsgId] = msg
-							this.InflightMessageLock.Unlock()
+							m.InflightMessageLock.Lock()
+							m.InflightMessageMap[msg.MsgId] = msg
+							m.InflightMessageLock.Unlock()
 							req.BatchMessage = append(req.BatchMessage, msg)
 							t.Stop()
 						case <-t.C:
@@ -244,7 +244,7 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 							continue ExactlyOnceMainLoop
 						}
 					} else {
-						break EXACTLY_ONCE_LOOP
+						break ExactlyOnceLoop
 					}
 				}
 			}
@@ -255,12 +255,12 @@ func (this *MemQueue) BatchObtain(record *mqapi.QueueRecord, maxCnt int, ctx *mq
 	}
 }
 
-func (this *MemQueue) BatchObtainReleased(record *mqapi.QueueRecord, maxCnt int, ctx *mqapi.Ctx) (mqapi.BatchObtainResult, error) {
-	switch this.DeliveryLevel {
+func (m *MemQueue) BatchObtainReleasing(record *mqapi.QueueRecord, maxCnt int, ctx *mqapi.Ctx) (mqapi.BatchObtainResult, error) {
+	switch m.DeliveryLevel {
 	case mqapi.ExactlyOnce:
 	ExactlyOnceMainLoop:
 		for {
-			ch := this.ReleaseChannel
+			ch := m.ReleaseChannel
 			result := mqapi.BatchObtainResult{
 				Requests: []*mqapi.Request{
 					{},
@@ -271,22 +271,24 @@ func (this *MemQueue) BatchObtainReleased(record *mqapi.QueueRecord, maxCnt int,
 			cnt := 0
 
 			// pump messages from messageChannel
-		EXACTLY_ONCE_LOOP:
+		ExactlyOnceLoop:
 			for ; cnt < maxCnt; cnt++ {
 				select {
 				case msg := <-ch:
-					this.ReleaseMessageLock.Lock()
-					this.ReleaseMessageMap[msg.MsgId] = msg
-					this.ReleaseMessageLock.Unlock()
+					m.ReleaseMessageLock.Lock()
+					m.ReleaseMessageMap[msg.MsgId] = msg
+					m.ReleaseMessageLock.Unlock()
 					req.BatchMessage = append(req.BatchMessage, msg)
 				default:
 					if len(req.BatchMessage) == 0 {
-						t := time.NewTimer(time.Duration(this.RedeliverIntervalTime) * time.Second)
+						t := time.NewTimer(time.Duration(m.RedeliverIntervalTime) * time.Second)
 						select {
 						case msg := <-ch:
-							this.ReleaseMessageLock.Lock()
-							this.ReleaseMessageMap[msg.MsgId] = msg
-							this.ReleaseMessageLock.Unlock()
+							//FIXME if release command from client side isn't replied forever, the message will not be released any more
+							//FIXME need pump release message from the release message map
+							m.ReleaseMessageLock.Lock()
+							m.ReleaseMessageMap[msg.MsgId] = msg
+							m.ReleaseMessageLock.Unlock()
 							req.BatchMessage = append(req.BatchMessage, msg)
 							t.Stop()
 						case <-t.C:
@@ -294,7 +296,7 @@ func (this *MemQueue) BatchObtainReleased(record *mqapi.QueueRecord, maxCnt int,
 							continue ExactlyOnceMainLoop
 						}
 					} else {
-						break EXACTLY_ONCE_LOOP
+						break ExactlyOnceLoop
 					}
 				}
 			}
@@ -306,8 +308,8 @@ func (this *MemQueue) BatchObtainReleased(record *mqapi.QueueRecord, maxCnt int,
 	}
 }
 
-func (this *MemQueue) ConfirmConsumed(record *mqapi.QueueRecord, ack *mqapi.Ack) error {
-	if this.DeliveryLevel == mqapi.AtMostOnce {
+func (m *MemQueue) ConfirmConsumed(record *mqapi.QueueRecord, ack *mqapi.Ack) error {
+	if m.DeliveryLevel == mqapi.AtMostOnce {
 		return mqapi.ErrDeliveryLevelIllegalOperation
 	}
 
@@ -315,8 +317,8 @@ func (this *MemQueue) ConfirmConsumed(record *mqapi.QueueRecord, ack *mqapi.Ack)
 
 	msgs := make([]mqapi.Message, 0, len(ack.AckIdList))
 	// in-flight map
-	inflightMap := this.InflightMessageMap
-	this.InflightMessageLock.Lock()
+	inflightMap := m.InflightMessageMap
+	m.InflightMessageLock.Lock()
 	for _, v := range ack.AckIdList {
 		msg, ok := inflightMap[v.MsgId]
 		if ok {
@@ -324,60 +326,60 @@ func (this *MemQueue) ConfirmConsumed(record *mqapi.QueueRecord, ack *mqapi.Ack)
 			msgs = append(msgs, msg)
 		}
 	}
-	this.InflightMessageLock.Unlock()
+	m.InflightMessageLock.Unlock()
 
 	// release map
-	if this.Queue.DeliveryLevel() == mqapi.ExactlyOnce {
+	if m.Queue.DeliveryLevel() == mqapi.ExactlyOnce {
 		releases := make([]mqapi.Message, 0, len(msgs))
-		this.ReleaseMessageLock.Lock()
+		m.ReleaseMessageLock.Lock()
 		for _, msg := range msgs {
 			releases = append(releases, msg)
 		}
-		this.ReleaseMessageLock.Unlock()
+		m.ReleaseMessageLock.Unlock()
 
 		for _, v := range releases {
-			this.ReleaseChannel <- v
+			m.ReleaseChannel <- v
 		}
 	}
 
 	return nil
 }
 
-func (this *MemQueue) ReleaseConsumed(record *mqapi.QueueRecord, ack *mqapi.Ack) error {
-	if this.DeliveryLevel != mqapi.ExactlyOnce {
+func (m *MemQueue) ReleaseConsumed(record *mqapi.QueueRecord, ack *mqapi.Ack) error {
+	if m.DeliveryLevel != mqapi.ExactlyOnce {
 		return mqapi.ErrDeliveryLevelIllegalOperation
 	}
 
 	// release map
-	releaseMap := this.ReleaseMessageMap
-	this.ReleaseMessageLock.Lock()
+	releaseMap := m.ReleaseMessageMap
+	m.ReleaseMessageLock.Lock()
 	for _, msg := range ack.AckIdList {
 		delete(releaseMap, msg.MsgId)
 	}
-	this.ReleaseMessageLock.Unlock()
+	m.ReleaseMessageLock.Unlock()
 
 	return nil
 }
 
-func (this *MemQueue) Init(queue mqapi.Queue, option *mqapi.QueueOption) error {
-	this.DeliveryLevel = option.DeliveryLevel
-	this.Queue = queue
-	switch this.DeliveryLevel {
+func (m *MemQueue) Init(queue mqapi.Queue, option *mqapi.QueueOption) error {
+	m.DeliveryLevel = option.DeliveryLevel
+	m.Queue = queue
+	switch m.DeliveryLevel {
 	case mqapi.AtMostOnce:
 	case mqapi.ExactlyOnce:
-		this.PrePubMapWithOutId = make(map[mqapi.OutId]mqapi.Message)
-		this.ReleaseMessageMap = make(map[mqapi.MsgId]mqapi.Message)
-		this.ReleaseChannel = make(chan mqapi.Message, option.QueueChannelSize)
+		m.PrePubMapWithOutId = make(map[mqapi.OutId]mqapi.Message)
+		m.ReleaseMessageMap = make(map[mqapi.MsgId]mqapi.Message)
+		m.ReleaseChannel = make(chan mqapi.Message, option.QueueChannelSize)
 		fallthrough
 	case mqapi.AtLeastOnce:
-		this.InflightMessageMap = make(map[mqapi.MsgId]mqapi.Message)
+		m.InflightMessageMap = make(map[mqapi.MsgId]mqapi.Message)
 		if option.RedeliverIntervalTime <= 0 {
-			this.RedeliverIntervalTime = 5
+			m.RedeliverIntervalTime = 5
 		} else {
-			this.RedeliverIntervalTime = option.RedeliverIntervalTime
+			m.RedeliverIntervalTime = option.RedeliverIntervalTime
 		}
-		this.lastRedeliveryTime = time.Now()
+		m.lastRedeliveryTime = time.Now()
 	}
-	this.MessageChannel = make(chan mqapi.Message, option.QueueChannelSize)
+	m.MessageChannel = make(chan mqapi.Message, option.QueueChannelSize)
 	return nil
 }
