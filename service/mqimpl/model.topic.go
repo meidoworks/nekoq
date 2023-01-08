@@ -178,7 +178,7 @@ func (topic *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi
 		// all queues
 		for _, q := range queueList {
 			//m[q.QueueInternalId] = q
-			err := q.PublishMessage(req, ctx)
+			err := q.PrePublishMessage(req, ctx)
 			if err != nil {
 				return EMPTY_MESSAGE_ID_LIST, err
 			}
@@ -195,7 +195,7 @@ func (topic *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi
 					_, ok := m[id]
 					if !ok {
 						m[q.QueueInternalId] = q
-						err := q.PublishMessage(req, ctx)
+						err := q.PrePublishMessage(req, ctx)
 						if err != nil {
 							return EMPTY_MESSAGE_ID_LIST, err
 						}

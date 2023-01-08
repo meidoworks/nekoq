@@ -16,8 +16,8 @@ type PublishGroup struct {
 }
 
 // at most once
-func (this *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
-	topic, ok := this.topicMap[req.Header.TopicId]
+func (pg *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
+	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
 		return mqapi.ErrTopicNotExist
 	}
@@ -29,8 +29,8 @@ func (this *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) err
 }
 
 // at least once
-func (this *PublishGroup) PublishGuaranteeMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
-	topic, ok := this.topicMap[req.Header.TopicId]
+func (pg *PublishGroup) PublishGuaranteeMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
+	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
 		return EMPTY_MESSAGE_ID_LIST, mqapi.ErrTopicNotExist
 	}
@@ -42,8 +42,8 @@ func (this *PublishGroup) PublishGuaranteeMessage(req *mqapi.Request, ctx *mqapi
 }
 
 // exactly once
-func (this *PublishGroup) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.MessageReceived, error) {
-	topic, ok := this.topicMap[req.Header.TopicId]
+func (pg *PublishGroup) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.MessageReceived, error) {
+	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
 		return mqapi.MessageReceived{
 			Ack: EMPTY_MESSAGE_ID_LIST,
@@ -55,15 +55,15 @@ func (this *PublishGroup) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) 
 			Ack: EMPTY_MESSAGE_ID_LIST,
 		}, mqapi.ErrDeliveryLevelNotMatch
 	}
-	ack, err := topic.PublishMessageWithResponse(req, ctx)
+	ack, err := topic.PrePublishMessage(req, ctx)
 	return mqapi.MessageReceived{
 		Ack: ack,
 	}, err
 }
 
 // exactly once
-func (this *PublishGroup) CommitMessage(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mqapi.MessageFinish, error) {
-	topic, ok := this.topicMap[req.Header.TopicId]
+func (pg *PublishGroup) CommitMessage(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mqapi.MessageFinish, error) {
+	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
 		return mqapi.MessageFinish{
 			Ack: EMPTY_MESSAGE_ID_LIST,
@@ -81,15 +81,15 @@ func (this *PublishGroup) CommitMessage(req *mqapi.MessageCommit, ctx *mqapi.Ctx
 	}, err
 }
 
-func (this *PublishGroup) Reply(reply *mqapi.Reply, ctx *mqapi.Ctx) error {
+func (pg *PublishGroup) Reply(reply *mqapi.Reply, ctx *mqapi.Ctx) error {
 	//TODO
 	return nil
 }
 
-func (this *PublishGroup) Join(node mqapi.Node) error {
-	return node.PublishGroupInitialize(this)
+func (pg *PublishGroup) Join(node mqapi.Node) error {
+	return node.PublishGroupInitialize(pg)
 }
 
-func (this *PublishGroup) Leave(node *Node) {
+func (pg *PublishGroup) Leave(node *Node) {
 	//TODO
 }
