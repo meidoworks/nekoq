@@ -118,8 +118,10 @@ func TestSession_CreateAtMostOnce(t *testing.T) {
 	}
 
 	// publish & consume
-	if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+	if desc, err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
 		t.Fatal(err)
+	} else {
+		t.Log("publish desc:" + fmt.Sprint(desc))
 	}
 
 	time.Sleep(2 * time.Second)
@@ -178,7 +180,78 @@ func TestSession_CreateAtLeastOnce(t *testing.T) {
 	}
 
 	// publish & consume
-	if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+	if desc, err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+		t.Fatal(err)
+	} else {
+		t.Log("publish desc:" + fmt.Sprint(desc))
+	}
+
+	time.Sleep(2 * time.Second)
+}
+
+func TestSession_CreateExactlyOnce(t *testing.T) {
+
+	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetDebug(true)
+
+	s, err := c.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close(context.Background())
+
+	err = s.CreateTopic("demo.003", mqclient.TopicOption{
+		DeliveryLevelType: mqclient.ExactlyOnce,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.CreateQueue("demo.queue.003", mqclient.QueueOption{
+		DeliveryLevelType: mqclient.ExactlyOnce,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.BindTopicAndQueue("demo.003", "demo.queue.003", "demo.routing.*"); err != nil {
+		t.Fatal(err)
+	}
+
+	// new publish group
+	// bind publish group
+	pg, err := s.CreatePublishGroup("demo.pg.003", "demo.003")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// new subscribe group
+	// bind subscribe group
+	// subscribe
+	//TODO support commit/release responses
+	if err := s.CreateSubscribeGroup("demo.sg.003", "demo.queue.003", func(message *mqclient.Message, sg mqclient.SubscribeGroup) error {
+		log.Println("receive message:" + fmt.Sprint(message))
+		log.Println(string(message.Payload))
+		if err := sg.Commit(message); err != nil {
+			log.Println("commit message error:" + fmt.Sprint(err))
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// publish & consume
+	var desc *mqclient.MessageDesc
+	if d, err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+		t.Fatal(err)
+	} else {
+		desc = d
+	}
+	time.Sleep(2 * time.Second)
+	// commit message
+	if err := pg.CommitPublish(desc); err != nil {
 		t.Fatal(err)
 	}
 
@@ -227,7 +300,7 @@ func BenchmarkSession_CreateAtMostOnce(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// publish & consume
-		if err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
+		if _, err := pg.Publish([]byte("hello world~"), "demo.routing.demo001"); err != nil {
 			b.Fatal(err)
 		}
 	}

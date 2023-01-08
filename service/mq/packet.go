@@ -25,6 +25,7 @@ type GeneralReq struct {
 	NewPublishGroup   *PublishGroupDef   `json:"new_publish_group,omitempty"`
 	NewSubscribeGroup *SubscribeGroupDef `json:"new_subscribe_group,omitempty"`
 	NewMessage        *MessageDef        `json:"new_message,omitempty"`
+	NewMessageCommit  *MessageDescDef    `json:"new_message_commit,omitempty"`
 	AckMessage        *AckDef            `json:"ack_message,omitempty"`
 }
 
@@ -62,6 +63,16 @@ type MessageDef struct {
 	Payload []byte `json:"payload"`
 }
 
+type MessageDescDef struct {
+	MessageIdList []struct {
+		MsgId idgen.IdType `json:"msg_id"`
+		OutId idgen.IdType `json:"out_id"`
+	} `json:"message_id_list"`
+	Topic        string `json:"topic"`
+	BindingKey   string `json:"binding_key"`
+	PublishGroup string `json:"publish_group"`
+}
+
 type AckDef struct {
 	SubscribeGroup string      `json:"subscribe_group"`
 	Queue          string      `json:"queue"`
@@ -95,6 +106,8 @@ type NewMessageRes struct {
 		MsgId idgen.IdType `json:"msg_id"`
 		OutId idgen.IdType `json:"out_id"`
 	} `json:"message_id_list"`
+	Topic      string `json:"topic"`
+	BindingKey string `json:"binding_key"`
 }
 
 type WrittenMessage struct {

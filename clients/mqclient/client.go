@@ -306,9 +306,9 @@ func (c *Session) Close(ctx context.Context) error {
 
 type PublishGroup interface {
 	// Publish for publishing message in at most once & at least once modes
-	Publish(payload []byte, bindingKey string) error
-	//PrePublish(payload []byte) error
-	//CommitPublish() error
+	Publish(payload []byte, bindingKey string) (*MessageDesc, error)
+	// CommitPublish for committing message at delivery level type of exactly-once
+	CommitPublish(desc *MessageDesc) error
 
 	//TODO AddReplyHandler(h func() error) error
 }
@@ -320,16 +320,10 @@ type publishGroupImpl struct {
 	*Session
 }
 
-func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) error {
-	mp := new(NewMessageRequest)
-	mp.BindingKey = bindingKey
-	mp.PublishGroup = p.PublishGroup
-	mp.Topic = p.Topic
-	mp.Payload = payload
-
+func (p *publishGroupImpl) CommitPublish(desc *MessageDesc) error {
 	req := new(ToServerSidePacket)
-	req.NewMessageRequest = mp
-	req.Operation = OperationNewMessage
+	req.Operation = OperationNewMessageCommit
+	req.NewMessageCommitRequest = desc
 	id, err := p.Session.idgen.Next()
 	if err != nil {
 		return err
@@ -347,12 +341,49 @@ func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) error {
 		if r.Status != "200" {
 			return errors.New("new message from server:" + fmt.Sprint(r.Status))
 		}
-		if p.Session.debugFlag {
-			log.Println("publish message id:" + fmt.Sprint(r.NewMessageResponse.MessageIdList))
-		}
 	}
 
 	return nil
+}
+
+func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) (*MessageDesc, error) {
+	mp := new(NewMessageRequest)
+	mp.BindingKey = bindingKey
+	mp.PublishGroup = p.PublishGroup
+	mp.Topic = p.Topic
+	mp.Payload = payload
+
+	req := new(ToServerSidePacket)
+	req.NewMessageRequest = mp
+	req.Operation = OperationNewMessage
+	id, err := p.Session.idgen.Next()
+	if err != nil {
+		return nil, err
+	}
+	req.RequestId = id.HexString()
+
+	var msgDesc = new(MessageDesc)
+	if ch, err := p.Session.channel.writeObj(req); err != nil {
+		return nil, err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		if p.Session.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
+		if r.Status != "200" {
+			return nil, errors.New("new message from server:" + fmt.Sprint(r.Status))
+		}
+		if p.Session.debugFlag {
+			log.Println("publish message id:" + fmt.Sprint(r.NewMessageResponse.MessageIdList))
+		}
+		msgDesc.MessageIdList = r.NewMessageResponse.MessageIdList
+		msgDesc.BindingKey = r.NewMessageResponse.BindingKey
+		msgDesc.Topic = r.NewMessageResponse.Topic
+		msgDesc.PublishGroup = p.PublishGroup
+	}
+
+	return msgDesc, nil
 }
 
 type SubscribeGroup interface {
@@ -388,7 +419,7 @@ func (s *subscribeGroupImpl) Commit(message *Message) error {
 			log.Println("receive response from server:" + fmt.Sprint(r))
 		}
 		if r.Status != "200" {
-			return errors.New("new message from server:" + fmt.Sprint(r.Status))
+			return errors.New("commit message to server:" + fmt.Sprint(r.Status))
 		}
 	}
 

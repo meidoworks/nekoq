@@ -126,7 +126,16 @@ func dispatch(p *GeneralReq, c *wsch) error {
 	case "new_message":
 		res, err := handleNewMessage(p)
 		if debugFlag {
-			log.Println("process new message group completed")
+			log.Println("process new message completed")
+		}
+		if err := handleResponse(res, err, f); err != nil {
+			return err
+		}
+		return nil
+	case "new_message_commit":
+		res, err := handleNewMessageCommit(p)
+		if debugFlag {
+			log.Println("process new message commit completed")
 		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
@@ -135,7 +144,7 @@ func dispatch(p *GeneralReq, c *wsch) error {
 	case "ack_message":
 		res, err := handleAckMessage(p)
 		if debugFlag {
-			log.Println("process ack message group completed")
+			log.Println("process ack message completed")
 		}
 		if err := handleResponse(res, err, f); err != nil {
 			return err
@@ -226,6 +235,53 @@ func handleAckMessage(p *GeneralReq) (*GeneralRes, error) {
 	return newSuccessResponse(p.RequestId, "ack_message"), nil
 }
 
+func handleNewMessageCommit(p *GeneralReq) (*GeneralRes, error) {
+	// validation
+	if p.NewMessageCommit == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+
+	// process
+	pg := GetMetadataContainer().GetPg(p.NewMessageCommit.PublishGroup)
+	if pg == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	t := GetMetadataContainer().GetTopic(p.NewMessageCommit.Topic)
+	if t == nil {
+		res := newFailedResponse("400", "parameter invalid", p.RequestId)
+		return res, nil
+	}
+	var tags = GetMetadataContainer().FilterOutBindingTag(p.NewMessageCommit.Topic, p.NewMessageCommit.BindingKey)
+	var idList = make([]mqapi.MessageId, len(p.NewMessageCommit.MessageIdList))
+	for i, v := range p.NewMessageCommit.MessageIdList {
+		idList[i] = mqapi.MessageId{
+			MsgId: mqapi.MsgId(v.MsgId),
+			OutId: mqapi.OutId(v.OutId),
+		}
+	}
+	commitReq := &mqapi.MessageCommit{
+		Header: mqapi.Header{
+			TopicId:       t.TopicId,
+			DeliveryLevel: mqapi.ExactlyOnce,
+			Tags:          tags,
+		},
+		Ack: mqapi.Ack{AckIdList: idList},
+	}
+	if mf, err := pg.CommitMessage(commitReq, newDefaultCtx()); err != nil {
+		log.Println("CommitMessage failed: " + fmt.Sprint(err))
+		res := newFailedResponse("500", "internal error", p.RequestId)
+		return res, nil
+	} else {
+		// no need to respond anything
+		_ = mf
+	}
+
+	// prepare output
+	return newSuccessResponse(p.RequestId, "new_message_commit"), nil
+}
+
 func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 	// validation
 	if p.NewMessage == nil {
@@ -301,9 +357,14 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 			acks = pres
 		}
 	case mqapi.ExactlyOnce:
-		//TODO support exactly once
-		res := newFailedResponse("500", "internal error", p.RequestId)
-		return res, nil
+		// support exactly once
+		if pres, err := pg.PrePublishMessage(msg, newDefaultCtx()); err != nil {
+			log.Println("PrePublishMessage failed: " + fmt.Sprint(err))
+			res := newFailedResponse("500", "internal error", p.RequestId)
+			return res, nil
+		} else {
+			acks = pres.Ack
+		}
 	default:
 		panic(errors.New("should not reach here based on delivery type"))
 	}
@@ -317,6 +378,8 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 				MsgId idgen.IdType `json:"msg_id"`
 				OutId idgen.IdType `json:"out_id"`
 			}{MsgId: idgen.IdType(v.MsgId), OutId: idgen.IdType(v.OutId)})
+			res.NewMessageResponse.Topic = p.NewMessage.Topic
+			res.NewMessageResponse.BindingKey = p.NewMessage.BindingKey
 		}
 	}
 

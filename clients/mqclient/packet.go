@@ -18,6 +18,7 @@ const (
 	OperationNewSubscribeGroup = "new_subscribe_group"
 	OperationNewMessage        = "new_message"
 	OperationAckMessage        = "ack_message"
+	OperationNewMessageCommit  = "new_message_commit"
 )
 
 const (
@@ -47,10 +48,14 @@ type SubscribeGroupRes struct {
 }
 
 type NewMessageRes struct {
-	MessageIdList []struct {
-		MsgId idgen.IdType `json:"msg_id"`
-		OutId idgen.IdType `json:"out_id"`
-	} `json:"message_id_list"`
+	MessageIdList []MessageId `json:"message_id_list"`
+	Topic         string      `json:"topic"`
+	BindingKey    string      `json:"binding_key"`
+}
+
+type MessageId struct {
+	MsgId idgen.IdType `json:"msg_id"`
+	OutId idgen.IdType `json:"out_id"`
 }
 
 type ToServerSidePacket struct {
@@ -64,6 +69,7 @@ type ToServerSidePacket struct {
 	NewSubscribeGroupRequest *NewSubscribeGroupRequest `json:"new_subscribe_group,omitempty"`
 	NewMessageRequest        *NewMessageRequest        `json:"new_message,omitempty"`
 	NewAckMessage            *AckMessage               `json:"ack_message,omitempty"`
+	NewMessageCommitRequest  *MessageDesc              `json:"new_message_commit,omitempty"`
 }
 
 type NewTopicRequest struct {
@@ -104,6 +110,13 @@ type AckMessage struct {
 	SubscribeGroup string       `json:"subscribe_group"`
 	Queue          string       `json:"queue"`
 	MessageId      idgen.IdType `json:"message_id"`
+}
+
+type MessageDesc struct {
+	MessageIdList []MessageId `json:"message_id_list"`
+	Topic         string      `json:"topic"`
+	BindingKey    string      `json:"binding_key"`
+	PublishGroup  string      `json:"publish_group"`
 }
 
 type Message struct {
