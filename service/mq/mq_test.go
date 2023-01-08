@@ -110,7 +110,7 @@ func TestBuildBroker(t *testing.T) {
 			{},
 		},
 	}
-	err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
+	_, err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestPrintBrokerTime(t *testing.T) {
 			mqapi.Message{},
 		},
 	}
-	err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
+	_, err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestPrintBrokerTime(t *testing.T) {
 	var start = time.Now()
 
 	for i := 0; i < CNT; i++ {
-		err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
+		_, err = publishGroup.PublishMessage(&msg, &mqapi.Ctx{})
 		if err != nil {
 			t.Fatal(err)
 		}

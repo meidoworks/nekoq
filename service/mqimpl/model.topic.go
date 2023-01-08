@@ -35,18 +35,23 @@ func (topic *Topic) PreQueue(req *mqapi.Request) {
 	//TODO features: pre-persistent, status check callback
 }
 
-func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
+func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	tags := req.Header.Tags
 
 	// generate message id
 	ig := topic.topicMessageIdGen
 	messages := req.BatchMessage
 	msgCnt := len(messages)
+	msgIds := make([]mqapi.MessageId, msgCnt)
 	for i := 0; i < msgCnt; i++ {
 		msgId, err := ig.Next()
-		messages[i].MsgId = mqapi.MsgId(msgId)
 		if err != nil {
-			return err
+			return EMPTY_MESSAGE_ID_LIST, err
+		}
+		messages[i].MsgId = mqapi.MsgId(msgId)
+		msgIds[i] = mqapi.MessageId{
+			MsgId: mqapi.MsgId(msgId),
+			OutId: messages[i].OutId,
 		}
 	}
 
@@ -59,7 +64,7 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
 			//m[q.QueueInternalId] = q
 			err := q.PublishMessage(req, ctx)
 			if err != nil {
-				return err
+				return EMPTY_MESSAGE_ID_LIST, err
 			}
 		}
 	} else {
@@ -76,7 +81,7 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
 						m[q.QueueInternalId] = q
 						err := q.PublishMessage(req, ctx)
 						if err != nil {
-							return err
+							return EMPTY_MESSAGE_ID_LIST, err
 						}
 					}
 				}
@@ -84,7 +89,7 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
 		}
 	}
 
-	return nil
+	return mqapi.Ack{AckIdList: msgIds}, nil
 }
 
 // PublishMessageWithResponse apply to at least once

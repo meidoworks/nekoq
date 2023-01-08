@@ -347,6 +347,9 @@ func (p *publishGroupImpl) Publish(payload []byte, bindingKey string) error {
 		if r.Status != "200" {
 			return errors.New("new message from server:" + fmt.Sprint(r.Status))
 		}
+		if p.Session.debugFlag {
+			log.Println("publish message id:" + fmt.Sprint(r.NewMessageResponse.MessageIdList))
+		}
 	}
 
 	return nil

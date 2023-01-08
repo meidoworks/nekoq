@@ -5,7 +5,7 @@ import "context"
 type PublishGroup interface {
 	Join(node Node) error
 
-	PublishMessage(req *Request, ctx *Ctx) error
+	PublishMessage(req *Request, ctx *Ctx) (Ack, error)
 	PublishGuaranteeMessage(req *Request, ctx *Ctx) (Ack, error)
 	PrePublishMessage(req *Request, ctx *Ctx) (MessageReceived, error)
 	CommitMessage(req *MessageCommit, ctx *Ctx) (MessageFinish, error)

@@ -43,10 +43,10 @@ func NewBroker(option *BrokerOption) *Broker {
 	return broker
 }
 
-func (this *Broker) GenNewInternalTopicId() (int32, error) {
-	old := this.topicInternalId
-	for !atomic.CompareAndSwapInt32(&this.topicInternalId, old, old+1) {
-		old = this.topicInternalId
+func (b *Broker) GenNewInternalTopicId() (int32, error) {
+	old := b.topicInternalId
+	for !atomic.CompareAndSwapInt32(&b.topicInternalId, old, old+1) {
+		old = b.topicInternalId
 	}
 	result := old + 1
 	if result < 0x7FFFFFFF {
@@ -55,10 +55,10 @@ func (this *Broker) GenNewInternalTopicId() (int32, error) {
 	return 0, mqapi.ErrTopicInternalIdExceeded
 }
 
-func (this *Broker) GenNewInternalQueueId() (int32, error) {
-	old := this.queueInternalId
-	for !atomic.CompareAndSwapInt32(&this.queueInternalId, old, old+1) {
-		old = this.queueInternalId
+func (b *Broker) GenNewInternalQueueId() (int32, error) {
+	old := b.queueInternalId
+	for !atomic.CompareAndSwapInt32(&b.queueInternalId, old, old+1) {
+		old = b.queueInternalId
 	}
 	result := old + 1
 	if result < 0x7FFFFFFF {
@@ -67,10 +67,10 @@ func (this *Broker) GenNewInternalQueueId() (int32, error) {
 	return 0, mqapi.ErrTopicInternalIdExceeded
 }
 
-func (this *Broker) GetNode(nodeId mqapi.NodeId) (*Node, error) {
-	this.clientNodeMapLock.RLock()
-	node, ok := this.clientNodeMap[nodeId]
-	this.clientNodeMapLock.RUnlock()
+func (b *Broker) GetNode(nodeId mqapi.NodeId) (*Node, error) {
+	b.clientNodeMapLock.RLock()
+	node, ok := b.clientNodeMap[nodeId]
+	b.clientNodeMapLock.RUnlock()
 	if !ok {
 		return nil, mqapi.ErrNodeNotExist
 	}

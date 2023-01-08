@@ -16,16 +16,17 @@ type PublishGroup struct {
 }
 
 // at most once
-func (pg *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) error {
+func (pg *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
-		return mqapi.ErrTopicNotExist
+		return EMPTY_MESSAGE_ID_LIST, mqapi.ErrTopicNotExist
 	}
 	deliveryLevel := req.Header.DeliveryLevel
 	if deliveryLevel != mqapi.AtMostOnce || topic.deliveryLevel != deliveryLevel {
-		return mqapi.ErrDeliveryLevelNotMatch
+		return EMPTY_MESSAGE_ID_LIST, mqapi.ErrDeliveryLevelNotMatch
 	}
-	return topic.PublishMessage(req, ctx)
+	ack, err := topic.PublishMessage(req, ctx)
+	return ack, err
 }
 
 // at least once

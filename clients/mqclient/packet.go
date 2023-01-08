@@ -32,6 +32,8 @@ type ServerSideIncoming struct {
 	PublishGroupResponse   *PublishGroupRes   `json:"publish_group_res,omitempty"`
 	SubscribeGroupResponse *SubscribeGroupRes `json:"subscribe_group_res,omitempty"`
 
+	NewMessageResponse *NewMessageRes `json:"new_message,omitempty"`
+
 	IncomingOperation *string  `json:"operation,omitempty"`
 	Message           *Message `json:"message,omitempty"`
 }
@@ -42,6 +44,13 @@ type PublishGroupRes struct {
 
 type SubscribeGroupRes struct {
 	SubscribeGroup string `json:"subscribe_group"`
+}
+
+type NewMessageRes struct {
+	MessageIdList []struct {
+		MsgId idgen.IdType `json:"msg_id"`
+		OutId idgen.IdType `json:"out_id"`
+	} `json:"message_id_list"`
 }
 
 type ToServerSidePacket struct {

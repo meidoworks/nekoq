@@ -285,10 +285,12 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 	var acks mqapi.Ack
 	switch dlt {
 	case mqapi.AtMostOnce:
-		if err := pg.PublishMessage(msg, newDefaultCtx()); err != nil {
+		if pres, err := pg.PublishMessage(msg, newDefaultCtx()); err != nil {
 			log.Println("PublishMessage failed: " + fmt.Sprint(err))
 			res := newFailedResponse("500", "internal error", p.RequestId)
 			return res, nil
+		} else {
+			acks = pres
 		}
 	case mqapi.AtLeastOnce:
 		if pres, err := pg.PublishGuaranteeMessage(msg, newDefaultCtx()); err != nil {
