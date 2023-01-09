@@ -38,6 +38,10 @@ type Node interface {
 	PublishGroupInitialize(pg PublishGroup) error
 
 	DirectReply(reply *Reply, ctx *Ctx) error
+	GetReplyChannel() <-chan *Reply
+
+	// Leave means the end of Node lifecycle
+	Leave() error
 }
 
 type brokerLifecycle interface {

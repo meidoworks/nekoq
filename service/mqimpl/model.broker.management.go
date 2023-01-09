@@ -374,6 +374,28 @@ func (b *Broker) GetNode(nodeId mqapi.NodeId) mqapi.Node {
 }
 
 func (b *Broker) AddNode() (mqapi.Node, error) {
-	//TODO
-	return nil, nil
+	node := new(Node)
+	node.replyChannel = make(chan *mqapi.Reply, 128) //TODO need configuration for the buffer size
+	node.broker = b
+	node.InitSubscribeGroupFn = func(sub mqapi.SubscribeGroup) {
+	}
+	node.InitPublishGroupFn = func(pub mqapi.PublishGroup) {
+	}
+
+	if nodeId, err := b.generalIdGenerator.Next(); err != nil {
+		return nil, err
+	} else {
+		node.nodeId = mqapi.NodeId(nodeId)
+	}
+
+	b.clientNodeMapLock.Lock()
+	node, ok := b.clientNodeMap[node.nodeId]
+	if ok {
+		return nil, mqapi.ErrNodeAlreadyExist
+	} else {
+		b.clientNodeMap[node.nodeId] = node
+	}
+	b.clientNodeMapLock.Unlock()
+
+	return node, nil
 }

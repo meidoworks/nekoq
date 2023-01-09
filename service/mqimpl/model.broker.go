@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/meidoworks/nekoq/service/mqapi"
+	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
 var _ mqapi.Broker = new(Broker)
@@ -24,6 +25,8 @@ type Broker struct {
 	//ephemeral
 	topicInternalId int32
 	queueInternalId int32
+
+	generalIdGenerator *idgen.IdGen
 }
 
 type BrokerOption struct {
@@ -40,6 +43,7 @@ func NewBroker(option *BrokerOption) *Broker {
 	broker.topicInternalId = 0
 	broker.queueInternalId = 0
 	broker.clientNodeMap = make(map[mqapi.NodeId]*Node)
+	broker.generalIdGenerator = idgen.NewIdGen(option.NodeId, 0)
 	return broker
 }
 

@@ -87,7 +87,7 @@ func TestBuildBroker(t *testing.T) {
 	wg.Add(1)
 
 	node := &mqimpl.Node{
-		InitFunc: func(sub mqapi.SubscribeGroup) {
+		InitSubscribeGroupFn: func(sub mqapi.SubscribeGroup) {
 			go func() {
 				ch := sub.SubscribeChannel()
 				for {
@@ -193,7 +193,7 @@ func TestPrintBrokerTime(t *testing.T) {
 	wg.Add(1)
 
 	node := &mqimpl.Node{
-		InitFunc: func(sub mqapi.SubscribeGroup) {
+		InitSubscribeGroupFn: func(sub mqapi.SubscribeGroup) {
 			go func() {
 				ch := sub.SubscribeChannel()
 				for {
@@ -321,7 +321,7 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 	wg.Add(1)
 
 	node := &mqimpl.Node{
-		InitFunc: func(sub mqapi.SubscribeGroup) {
+		InitSubscribeGroupFn: func(sub mqapi.SubscribeGroup) {
 			go func() {
 				ch := sub.SubscribeChannel()
 				for {
@@ -464,7 +464,7 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 	wg.Add(1)
 
 	node := &mqimpl.Node{
-		InitFunc: func(sub mqapi.SubscribeGroup) {
+		InitSubscribeGroupFn: func(sub mqapi.SubscribeGroup) {
 			go func() {
 				ch := sub.SubscribeChannel()
 				for {

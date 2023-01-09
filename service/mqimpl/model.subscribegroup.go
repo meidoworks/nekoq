@@ -143,7 +143,7 @@ func (sg *SubscribeGroup) reply(ack *mqapi.Ack) error {
 	case 1:
 		//to node
 		node := sg.broker.GetNode(ack.Reply.ReplyToNode)
-		if node != nil {
+		if node == nil {
 			return mqapi.ErrNodeNotExist
 		}
 		return node.DirectReply(ack.Reply, &mqapi.Ctx{Context: context.Background()})

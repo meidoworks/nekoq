@@ -7,6 +7,7 @@ var (
 	ErrQueueAlreadyExist          = errors.New("queue already exists")
 	ErrPublishGroupAlreadyExist   = errors.New("publishGroup already exists")
 	ErrSubscribeGroupAlreadyExist = errors.New("subscribeGroup already exists")
+	ErrNodeAlreadyExist           = errors.New("node already exists")
 
 	ErrTopicNotExist          = errors.New("topic not exists")
 	ErrQueueNotExist          = errors.New("queue not exists")
@@ -25,6 +26,7 @@ var (
 
 	ErrReplyTypeUnknown         = errors.New("reply type unknown")
 	ErrReplyDestinationNotExist = errors.New("reply destination not exist")
+	ErrReplyTimeout             = errors.New("reply timeout")
 
 	ErrUnsupportedOperation = errors.New("unsupported operation")
 
