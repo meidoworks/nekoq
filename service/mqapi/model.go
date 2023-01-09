@@ -9,6 +9,8 @@ type PublishGroup interface {
 	PublishGuaranteeMessage(req *Request, ctx *Ctx) (Ack, error)
 	PrePublishMessage(req *Request, ctx *Ctx) (MessageReceived, error)
 	CommitMessage(req *MessageCommit, ctx *Ctx) (MessageFinish, error)
+
+	Reply(reply *Reply, ctx *Ctx) error
 }
 
 type Topic interface {
@@ -34,6 +36,8 @@ type SubscribeGroup interface {
 type Node interface {
 	SubscribeGroupInitialize(sg SubscribeGroup) error
 	PublishGroupInitialize(pg PublishGroup) error
+
+	DirectReply(reply *Reply, ctx *Ctx) error
 }
 
 type brokerLifecycle interface {
@@ -57,8 +61,11 @@ type brokerManagement interface {
 	BindSubscribeGroupToQueue(subscribeGroupId SubscribeGroupId, queueId QueueId) error
 	UnbindSubscribeGroupFromQueue(subscribeGroupId SubscribeGroupId, queueId QueueId) error
 
+	AddNode() (Node, error)
+
 	GetSubscribeGroup(subscribeGroupId SubscribeGroupId) SubscribeGroup
 	GetPublishGroup(publishGroupId PublishGroupId) PublishGroup
+	GetNode(nodeId NodeId) Node
 }
 
 type Broker interface {

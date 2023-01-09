@@ -66,13 +66,3 @@ func (b *Broker) GenNewInternalQueueId() (int32, error) {
 	}
 	return 0, mqapi.ErrTopicInternalIdExceeded
 }
-
-func (b *Broker) GetNode(nodeId mqapi.NodeId) (*Node, error) {
-	b.clientNodeMapLock.RLock()
-	node, ok := b.clientNodeMap[nodeId]
-	b.clientNodeMapLock.RUnlock()
-	if !ok {
-		return nil, mqapi.ErrNodeNotExist
-	}
-	return node, nil
-}

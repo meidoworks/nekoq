@@ -2,12 +2,12 @@ package mqimpl
 
 import "context"
 
-func (this *Broker) Start() error {
+func (b *Broker) Start() error {
 	//TODO
 	return nil
 }
 
-func (this *Broker) Shutdown(ctx context.Context) error {
+func (b *Broker) Shutdown(ctx context.Context) error {
 	//TODO
 	return nil
 }

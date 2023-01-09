@@ -5,7 +5,7 @@ import (
 	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
-func (this *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOption) (mqapi.Topic, error) {
+func (b *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOption) (mqapi.Topic, error) {
 	t := new(Topic)
 	t.topicID = topicId
 	t.queueList = []*Queue{}
@@ -20,15 +20,15 @@ func (this *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOpt
 	default:
 		t.deliveryLevel = mqapi.AtMostOnce
 	}
-	topicInternalId, err := this.GenNewInternalTopicId()
+	topicInternalId, err := b.GenNewInternalTopicId()
 	if err != nil {
 		return nil, err
 	}
-	t.topicMessageIdGen = idgen.NewIdGen(this.nodeId, topicInternalId)
+	t.topicMessageIdGen = idgen.NewIdGen(b.nodeId, topicInternalId)
 	t.topicInternalId = topicInternalId
-	t.broker = this
+	t.broker = b
 
-	err = this.addTopic(t)
+	err = b.addTopic(t)
 	if err != nil {
 		return nil, err
 	}
@@ -36,15 +36,15 @@ func (this *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOpt
 	return t, nil
 }
 
-func (this *Broker) addTopic(topic *Topic) error {
-	this.basicLock.Lock()
-	defer this.basicLock.Unlock()
+func (b *Broker) addTopic(topic *Topic) error {
+	b.basicLock.Lock()
+	defer b.basicLock.Unlock()
 
-	if _, ok := this.topicMap[topic.topicID]; ok {
+	if _, ok := b.topicMap[topic.topicID]; ok {
 		return mqapi.ErrTopicAlreadyExist
 	}
 
-	this.topicMap = CopyAddMap(this.topicMap, topic.topicID, topic)
+	b.topicMap = CopyAddMap(b.topicMap, topic.topicID, topic)
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (b *Broker) DeleteTopic(topicId mqapi.TopicId) error {
 	return nil
 }
 
-func (this *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOption) (mqapi.Queue, error) {
+func (b *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOption) (mqapi.Queue, error) {
 	q := new(Queue)
 	switch option.DeliveryLevel {
 	case mqapi.AtMostOnce:
@@ -81,7 +81,7 @@ func (this *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOpt
 	q.QueueChannel = make(chan *mqapi.Request, option.QueueChannelSize)
 	q.InitBatchObtainCount = 16
 	q.MaxBatchObtainCount = 1024
-	queueInternalId, err := this.GenNewInternalQueueId()
+	queueInternalId, err := b.GenNewInternalQueueId()
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (this *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOpt
 	if err != nil {
 		return nil, err
 	}
-	err = this.addQueue(q)
+	err = b.addQueue(q)
 	if err != nil {
 		return nil, err
 	}
@@ -98,15 +98,15 @@ func (this *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOpt
 	return q, nil
 }
 
-func (this *Broker) addQueue(queue *Queue) error {
-	this.basicLock.Lock()
-	defer this.basicLock.Unlock()
+func (b *Broker) addQueue(queue *Queue) error {
+	b.basicLock.Lock()
+	defer b.basicLock.Unlock()
 
-	if _, ok := this.queueMap[queue.queueID]; ok {
+	if _, ok := b.queueMap[queue.queueID]; ok {
 		return mqapi.ErrQueueAlreadyExist
 	}
 
-	this.queueMap = CopyAddMap(this.queueMap, queue.queueID, queue)
+	b.queueMap = CopyAddMap(b.queueMap, queue.queueID, queue)
 	return nil
 }
 
@@ -115,9 +115,9 @@ func (b *Broker) DeleteQueue(queueId mqapi.QueueId) error {
 	return nil
 }
 
-func (this *Broker) BindTopicAndQueue(topicId mqapi.TopicId, queueId mqapi.QueueId, tags []mqapi.TagId) error {
-	topicMap := this.topicMap
-	queueMap := this.queueMap
+func (b *Broker) BindTopicAndQueue(topicId mqapi.TopicId, queueId mqapi.QueueId, tags []mqapi.TagId) error {
+	topicMap := b.topicMap
+	queueMap := b.queueMap
 
 	topic, ok := topicMap[topicId]
 	if !ok {
@@ -198,11 +198,11 @@ func (b *Broker) UnbindTopicAndQueue(topicId mqapi.TopicId, queueId mqapi.QueueI
 	return nil
 }
 
-func (this *Broker) DefineNewPublishGroup(publishGroupId mqapi.PublishGroupId) (mqapi.PublishGroup, error) {
+func (b *Broker) DefineNewPublishGroup(publishGroupId mqapi.PublishGroupId) (mqapi.PublishGroup, error) {
 	pg := new(PublishGroup)
 	pg.publishGroupID = publishGroupId
 	pg.topicMap = make(map[mqapi.TopicId]*Topic)
-	err := this.addPublishGroup(pg)
+	err := b.addPublishGroup(pg)
 	if err != nil {
 		return nil, err
 	}
@@ -210,15 +210,15 @@ func (this *Broker) DefineNewPublishGroup(publishGroupId mqapi.PublishGroupId) (
 	return pg, nil
 }
 
-func (this *Broker) addPublishGroup(publishGroup *PublishGroup) error {
-	this.basicLock.Lock()
-	defer this.basicLock.Unlock()
+func (b *Broker) addPublishGroup(publishGroup *PublishGroup) error {
+	b.basicLock.Lock()
+	defer b.basicLock.Unlock()
 
-	if _, ok := this.publishGroupMap[publishGroup.publishGroupID]; ok {
+	if _, ok := b.publishGroupMap[publishGroup.publishGroupID]; ok {
 		return mqapi.ErrPublishGroupAlreadyExist
 	}
 
-	this.publishGroupMap = CopyAddMap(this.publishGroupMap, publishGroup.publishGroupID, publishGroup)
+	b.publishGroupMap = CopyAddMap(b.publishGroupMap, publishGroup.publishGroupID, publishGroup)
 	return nil
 }
 
@@ -227,9 +227,9 @@ func (b *Broker) DeletePublishGroup(publishGroupId mqapi.PublishGroupId) error {
 	return nil
 }
 
-func (this *Broker) BindPublishGroupToTopic(publishGroupId mqapi.PublishGroupId, topicId mqapi.TopicId) error {
-	publishGroupMap := this.publishGroupMap
-	topicMap := this.topicMap
+func (b *Broker) BindPublishGroupToTopic(publishGroupId mqapi.PublishGroupId, topicId mqapi.TopicId) error {
+	publishGroupMap := b.publishGroupMap
+	topicMap := b.topicMap
 
 	publishGroup, ok := publishGroupMap[publishGroupId]
 	if !ok {
@@ -257,18 +257,19 @@ func (b *Broker) UnbindPublishGroupFromTopic(publishGroupId mqapi.PublishGroupId
 	return nil
 }
 
-func (this *Broker) DefineNewSubscribeGroup(subscribeGroupId mqapi.SubscribeGroupId, option *mqapi.SubscribeGroupOption) (mqapi.SubscribeGroup, error) {
+func (b *Broker) DefineNewSubscribeGroup(subscribeGroupId mqapi.SubscribeGroupId, option *mqapi.SubscribeGroupOption) (mqapi.SubscribeGroup, error) {
 	sg := new(SubscribeGroup)
 	sg.subscribeGroupID = subscribeGroupId
 	sg.queueMap = make(map[mqapi.QueueId]SgQMap)
 	sg.SubCh = make(chan mqapi.SubChanElem, option.SubscribeChannelSize)
 	sg.ReleaseCh = make(chan mqapi.ReleaseChanElem, option.SubscribeChannelSize)
+	sg.broker = b
 	if option.ObtainFailRetryInterval <= 0 {
 		sg.obtainFailRetryInterval = 100
 	} else {
 		sg.obtainFailRetryInterval = option.ObtainFailRetryInterval
 	}
-	err := this.addSubscribeGroup(sg)
+	err := b.addSubscribeGroup(sg)
 	if err != nil {
 		return nil, err
 	}
@@ -276,15 +277,15 @@ func (this *Broker) DefineNewSubscribeGroup(subscribeGroupId mqapi.SubscribeGrou
 	return sg, nil
 }
 
-func (this *Broker) addSubscribeGroup(subscribeGroup *SubscribeGroup) error {
-	this.basicLock.Lock()
-	defer this.basicLock.Unlock()
+func (b *Broker) addSubscribeGroup(subscribeGroup *SubscribeGroup) error {
+	b.basicLock.Lock()
+	defer b.basicLock.Unlock()
 
-	if _, ok := this.subscribeGroup[subscribeGroup.subscribeGroupID]; ok {
+	if _, ok := b.subscribeGroup[subscribeGroup.subscribeGroupID]; ok {
 		return mqapi.ErrSubscribeGroupAlreadyExist
 	}
 
-	this.subscribeGroup = CopyAddMap(this.subscribeGroup, subscribeGroup.subscribeGroupID, subscribeGroup)
+	b.subscribeGroup = CopyAddMap(b.subscribeGroup, subscribeGroup.subscribeGroupID, subscribeGroup)
 	return nil
 }
 
@@ -293,9 +294,9 @@ func (b *Broker) DeleteSubscribeGroup(subscribeGroupId mqapi.SubscribeGroupId) e
 	return nil
 }
 
-func (this *Broker) BindSubscribeGroupToQueue(subscribeGroupId mqapi.SubscribeGroupId, queueId mqapi.QueueId) error {
-	sgMap := this.subscribeGroup
-	queueMap := this.queueMap
+func (b *Broker) BindSubscribeGroupToQueue(subscribeGroupId mqapi.SubscribeGroupId, queueId mqapi.QueueId) error {
+	sgMap := b.subscribeGroup
+	queueMap := b.queueMap
 
 	sg, ok := sgMap[subscribeGroupId]
 	if !ok {
@@ -360,4 +361,19 @@ func (b *Broker) GetPublishGroup(publishGroupId mqapi.PublishGroupId) mqapi.Publ
 	} else {
 		return nil
 	}
+}
+
+func (b *Broker) GetNode(nodeId mqapi.NodeId) mqapi.Node {
+	b.clientNodeMapLock.RLock()
+	node, ok := b.clientNodeMap[nodeId]
+	b.clientNodeMapLock.RUnlock()
+	if !ok {
+		return nil
+	}
+	return node
+}
+
+func (b *Broker) AddNode() (mqapi.Node, error) {
+	//TODO
+	return nil, nil
 }

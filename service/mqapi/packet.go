@@ -33,11 +33,13 @@ type ReplyTo struct {
 	ReplyType           byte //0 - non, 1 - nodeId, 2 - publishGroupId
 	ReplyToNode         NodeId
 	ReplyToPublishGroup PublishGroupId
+	ReplyIdentifier     string
 }
 
 // Ack is used for when DeliveryLevelType = 1
 type Ack struct {
 	AckIdList []MessageId
+	Reply     *Reply
 }
 
 // MessageReceived is used for when DeliveryLevelType = 2
@@ -58,7 +60,6 @@ type MessageFinish struct {
 
 type Reply struct {
 	ReplyTo
-	TopicId TopicId
 	Message
 }
 
