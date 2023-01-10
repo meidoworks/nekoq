@@ -37,9 +37,34 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("new connection income:" + fmt.Sprint(r.RemoteAddr))
-	ch := newWsch(cid, c)
+
+	//TODO process auth methods
+
+	// create new node from the broker
+	node, err := GetBroker().AddNode()
+	if err != nil {
+		log.Println("Add new node to the broker failed:" + fmt.Sprint(err))
+	}
+	ch := newWsch(cid, c, node)
+
+	// start node reply worker
+	go func() {
+		for {
+			r := <-node.GetReplyChannel()
+			if r == nil {
+				log.Println("receive nil reply from channel. exit processing loop.")
+				return
+			}
+			if err := processReply(ch, r); err != nil {
+				log.Println("process reply failed:" + fmt.Sprint(err))
+			}
+		}
+	}()
 
 	defer func() {
+		if err := node.Leave(); err != nil {
+			log.Println("Node leave failed:" + fmt.Sprint(err))
+		}
 		ch.cleanupWsChannel()
 	}()
 

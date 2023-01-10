@@ -25,6 +25,7 @@ const (
 const (
 	IncomingOperationMessage          = "message"
 	IncomingOperationMessageReleasing = "message_releasing"
+	IncomingOperationReply            = "reply"
 )
 
 type ServerSideIncoming struct {

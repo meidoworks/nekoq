@@ -14,6 +14,7 @@ const (
 const (
 	ResponseOperationMessage          = "message"
 	ResponseOperationMessageReleasing = "message_releasing"
+	ResponseOperationReply            = "reply"
 )
 
 type GeneralReq struct {
@@ -100,6 +101,7 @@ type GeneralRes struct {
 	Operation               *string                  `json:"operation,omitempty"`
 	WrittenMessage          *WrittenMessage          `json:"message,omitempty"`
 	WrittenMessageReleasing *WrittenMessageReleasing `json:"message_releasing,omitempty"`
+	WrittenReply            *WrittenReply            `json:"reply"`
 }
 
 type PublishGroupRes struct {
@@ -134,4 +136,10 @@ type WrittenMessageReleasing struct {
 	BindingKey     string      `json:"binding_key"`
 	SubscribeGroup string      `json:"subscribe_group"`
 	MessageId      mqapi.MsgId `json:"message_id"`
+}
+
+type WrittenReply struct {
+	ReplyId         idgen.IdType `json:"reply_id"`
+	ReplyIdentifier string       `json:"reply_identifier"`
+	Payload         []byte       `json:"payload"`
 }

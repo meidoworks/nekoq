@@ -159,6 +159,8 @@ func (w *webChannel) processIncomingOperation(s *ServerSideIncoming) {
 			return
 		}
 		ch <- s
+	case IncomingOperationReply:
+		//TODO receive reply
 	default:
 		log.Println("unknown incoming operation:" + (*s.IncomingOperation))
 	}

@@ -29,6 +29,8 @@ type wsch struct {
 
 	closeCh   chan struct{}
 	closeOnce sync.Once
+
+	node mqapi.Node
 }
 
 func (w *wsch) sgWorker(sgName string, queueName string, sg mqapi.SubscribeGroup) {
@@ -56,13 +58,14 @@ SgWorkerLoop:
 	}
 }
 
-func newWsch(cid idgen.IdType, conn *websocket.Conn) *wsch {
+func newWsch(cid idgen.IdType, conn *websocket.Conn, node mqapi.Node) *wsch {
 	return &wsch{
 		Cid:     cid,
 		Conn:    conn,
 		sgMap:   make(map[string]mqapi.SubscribeGroup),
 		pgMap:   make(map[string]mqapi.PublishGroup),
 		closeCh: make(chan struct{}),
+		node:    node,
 	}
 }
 
@@ -240,6 +243,26 @@ func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem, sgName string) {
 		}
 	}
 
+}
+
+func processReply(ch *wsch, r *mqapi.Reply) error {
+	res := new(GeneralRes)
+	res.Status = "200"
+	res.Info = "message"
+	op := ResponseOperationReply
+	res.Operation = &op
+	rp := new(WrittenReply)
+	rp.ReplyId = idgen.IdType(r.ReplyToNode)
+	rp.ReplyIdentifier = r.ReplyIdentifier
+	rp.Payload = r.Body
+
+	if err := handleResponse(res, nil, func() (io.WriteCloser, error) {
+		return ch.Conn.Writer(context.Background(), websocket.MessageBinary)
+	}); err != nil {
+		log.Println("processReply failed:" + fmt.Sprint(err))
+		return err
+	}
+	return nil
 }
 
 func newDefaultCtx() *mqapi.Ctx {
