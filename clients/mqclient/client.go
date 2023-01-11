@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/meidoworks/nekoq/shared/idgen"
 )
@@ -297,19 +298,138 @@ func (c *Session) CreateSubscribeGroup(subscribeGroup, queue string, newSub Subs
 	return nil
 }
 
-func (c *Session) CreateRpcStub(methodTopic, bindingKey string, encoder Codec) RpcStub {
+func (c *Session) CreateRpcStub(methodTopic, bindingKey, publishGroup string, encoder Codec) RpcStub {
+	//TODO should make sure the topic is using at-least-once or exactly-once
 	return &rpcStubImpl{
-		Session:    c,
-		Topic:      methodTopic,
-		BindingKey: bindingKey,
-		Codec:      encoder,
+		Session:      c,
+		Topic:        methodTopic,
+		BindingKey:   bindingKey,
+		PublishGroup: publishGroup,
+		Codec:        encoder,
 	}
 }
 
-func (c *Session) RpcHandle(serviceQueue string, encoder Codec, h RpcHandler) error {
-	//TODO implement me
+func (c *Session) RpcHandle(serviceQueue, subscribeGroup string, encoder Codec, h RpcHandler) error {
 	//TODO add max payload check in response
-	panic("implement me")
+
+	sp := new(NewSubscribeGroupRequest)
+	sp.SubscribeGroup = subscribeGroup
+	sp.Queue = serviceQueue
+
+	req := new(ToServerSidePacket)
+	req.NewSubscribeGroupRequest = sp
+	req.Operation = OperationNewSubscribeGroup
+	id, err := c.idgen.Next()
+	if err != nil {
+		return err
+	}
+	req.RequestId = id.HexString()
+
+	if ch, err := c.channel.writeObj(req); err != nil {
+		return err
+	} else {
+		//TODO max wait time on client side
+		r := <-ch
+		if c.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
+		if r.Status != "200" {
+			return errors.New("create subscribe group failed from server:" + fmt.Sprint(r.Status))
+		}
+		if r.SubscribeGroupResponse.SubscribeGroup != subscribeGroup {
+			return errors.New("subscribe group names don't match")
+		}
+	}
+	c.channel.ChannelMapLock.Lock()
+	sgCh, ok := c.channel.SgServerMessageChannels[subscribeGroup]
+	if !ok {
+		sgCh = make(chan *ServerSideIncoming, 1024)
+		c.channel.SgServerMessageChannels[subscribeGroup] = sgCh
+	}
+	sgRCh, ok := c.channel.SgServerMessageReleasingChannels[subscribeGroup]
+	if !ok {
+		sgRCh = make(chan *ServerSideIncoming, 1024)
+		c.channel.SgServerMessageReleasingChannels[subscribeGroup] = sgRCh
+	}
+	c.channel.ChannelMapLock.Unlock()
+
+	// pump message from remote source for the NEW sgCh
+	//FIXME this will cause only one subscribe could be effective on the same subscribeGroup
+	if !ok {
+		go func() {
+			sg := new(subscribeGroupImpl)
+			sg.subscribeGroup = subscribeGroup
+			sg.session = c
+
+		PumpMessageFromServerLoop:
+			for {
+				select {
+				// close this subscribe when session closed or actively close the subscription
+				case <-c.channel.closeCh:
+					break PumpMessageFromServerLoop
+				case incoming := <-sgCh:
+					// copy immutable values
+					incoming.Message.messageId = incoming.Message.MessageId
+					incoming.Message.queue = incoming.Message.Queue
+
+					obj, err := encoder.ReqUnmarshal(incoming.Message.Payload)
+					if err != nil {
+						//TODO need respond failure
+						log.Println("unmarshal request failed:" + fmt.Sprint(err))
+						continue
+					}
+					//TODO need parallel run handler
+					res, err := h.Handle(obj)
+					if err != nil {
+						//TODO need respond failure
+						log.Println("handle request failed:" + fmt.Sprint(err))
+						continue
+					}
+					data, err := encoder.ResMarshal(res)
+					if err != nil {
+						//TODO need respond failure
+						log.Println("marshal response failed:" + fmt.Sprint(err))
+						continue
+					}
+
+					message := incoming.Message
+
+					ap := new(AckMessage)
+					ap.Queue = message.queue
+					ap.SubscribeGroup = subscribeGroup
+					ap.MessageId = message.messageId
+					ap.ReplyId = message.ReplyId
+					ap.ReplyIdentifier = message.ReplyIdentifier
+					ap.Payload = data
+
+					req := new(ToServerSidePacket)
+					req.NewAckMessage = ap
+					req.Operation = OperationAckMessage
+					id, err := sg.session.idgen.Next()
+					if err != nil {
+						//TODO need respond failure
+						log.Println("get next id failed:" + fmt.Sprint(err))
+						continue
+					}
+					req.RequestId = id.HexString()
+
+					if _, err := sg.session.channel.writeObj(req); err != nil {
+						//TODO need respond failure
+						log.Println("writeObj failed:" + fmt.Sprint(err))
+						continue
+					} else {
+						// don't wait for respond
+					}
+
+				case _ = <-sgRCh:
+					//FIXME currently not support exactly-once queue
+					log.Println("currently not support exactly-once queue")
+				}
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (c *Session) Close(ctx context.Context) error {
@@ -414,6 +534,8 @@ func (s *subscribeGroupImpl) Commit(message *Message) error {
 	ap.Queue = message.queue
 	ap.SubscribeGroup = s.subscribeGroup
 	ap.MessageId = message.messageId
+	ap.ReplyId = message.ReplyId
+	ap.ReplyIdentifier = message.ReplyIdentifier
 
 	req := new(ToServerSidePacket)
 	req.NewAckMessage = ap
@@ -445,6 +567,8 @@ func (s *subscribeGroupImpl) Release(messageMeta *MessageReleasing) error {
 	ap.Queue = messageMeta.queue
 	ap.SubscribeGroup = s.subscribeGroup
 	ap.MessageId = messageMeta.messageId
+	ap.ReplyIdentifier = messageMeta.ReplyIdentifier
+	ap.ReplyId = messageMeta.ReplyId
 
 	req := new(ToServerSidePacket)
 	req.NewReleaseMessage = ap
@@ -482,8 +606,9 @@ type RpcStub interface {
 
 type rpcStubImpl struct {
 	*Session
-	Topic      string
-	BindingKey string
+	Topic        string
+	BindingKey   string
+	PublishGroup string
 	Codec
 }
 
@@ -499,16 +624,69 @@ func (s *SimpleRpcHandler) Handle(req interface{}) (interface{}, error) {
 	return s.H(req)
 }
 
-func (r *rpcStubImpl) Call(req interface{}) (interface{}, error) {
-	data, err := r.ReqMarshal(req)
+func (r *rpcStubImpl) Call(reqObj interface{}) (interface{}, error) {
+	data, err := r.ReqMarshal(reqObj)
 	if err != nil {
 		return nil, err
 	}
 	if len(data) > maxRpcPayloadSize {
 		return nil, errors.New("request payload exceeded")
 	}
-	//TODO implement me
-	panic("implement me")
+
+	mp := new(NewMessageRequest)
+	mp.BindingKey = r.BindingKey
+	mp.PublishGroup = r.PublishGroup
+	mp.Topic = r.Topic
+	mp.Payload = data
+	mp.RpcMeta = new(struct {
+		ReplyIdentifier string `json:"reply_identifier"`
+	})
+
+	req := new(ToServerSidePacket)
+	req.NewMessageRequest = mp
+	req.Operation = OperationNewMessage
+	id, err := r.Session.idgen.Next()
+	if err != nil {
+		return nil, err
+	}
+	req.RequestId = id.HexString()
+	mp.RpcMeta.ReplyIdentifier = req.RequestId
+	// insert into rpc list
+	rpcReq := new(_rpcRequest)
+	rpcReq.ch = make(chan *ServerSideIncoming, 1)
+	r.channel.rpcRequestMapLock.Lock()
+	r.channel.rpcRequestMap[req.RequestId] = rpcReq
+	r.channel.rpcRequestMapLock.Unlock()
+
+	var msgDesc = new(MessageDesc)
+	if ch, err := r.Session.channel.writeObj(req); err != nil {
+		return nil, err
+	} else {
+		//TODO max wait time on client side
+		rr := <-ch
+		if r.Session.debugFlag {
+			log.Println("receive response from server:" + fmt.Sprint(r))
+		}
+		if rr.Status != "200" {
+			return nil, errors.New("new message from server:" + fmt.Sprint(rr.Status))
+		}
+		if r.Session.debugFlag {
+			log.Println("publish message id:" + fmt.Sprint(rr.NewMessageResponse.MessageIdList))
+		}
+		msgDesc.MessageIdList = rr.NewMessageResponse.MessageIdList
+		msgDesc.BindingKey = rr.NewMessageResponse.BindingKey
+		msgDesc.Topic = rr.NewMessageResponse.Topic
+		msgDesc.PublishGroup = r.PublishGroup
+	}
+
+	select {
+	// waiting for rpc response
+	case reply := <-rpcReq.ch:
+		return r.ResUnmarshal(reply.Reply.Payload)
+	case <-time.NewTimer(10 * time.Second).C: //TODO need customize client side timeout
+		return nil, errors.New("rpc timeout")
+	}
+
 }
 
 type Codec interface {

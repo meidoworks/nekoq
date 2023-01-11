@@ -62,6 +62,9 @@ type MessageDef struct {
 	Topic        string `json:"topic"`
 	PublishGroup string `json:"publish_group"`
 	BindingKey   string `json:"binding_key"`
+	RpcMeta      *struct {
+		ReplyIdentifier string `json:"reply_identifier"`
+	} `json:"rpc_meta"`
 
 	Payload []byte `json:"payload"`
 }
@@ -80,12 +83,20 @@ type AckDef struct {
 	SubscribeGroup string      `json:"subscribe_group"`
 	Queue          string      `json:"queue"`
 	MessageId      mqapi.MsgId `json:"message_id"`
+
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
+	Payload         []byte `json:"payload"`
 }
 
 type ReleaseDef struct {
 	SubscribeGroup string      `json:"subscribe_group"`
 	Queue          string      `json:"queue"`
 	MessageId      mqapi.MsgId `json:"message_id"`
+
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
+	Payload         []byte `json:"payload"`
 }
 
 type GeneralRes struct {
@@ -101,7 +112,7 @@ type GeneralRes struct {
 	Operation               *string                  `json:"operation,omitempty"`
 	WrittenMessage          *WrittenMessage          `json:"message,omitempty"`
 	WrittenMessageReleasing *WrittenMessageReleasing `json:"message_releasing,omitempty"`
-	WrittenReply            *WrittenReply            `json:"reply"`
+	WrittenReply            *WrittenReply            `json:"reply,omitempty"`
 }
 
 type PublishGroupRes struct {
@@ -128,6 +139,9 @@ type WrittenMessage struct {
 	SubscribeGroup string      `json:"subscribe_group"`
 	MessageId      mqapi.MsgId `json:"message_id"`
 	Payload        []byte      `json:"payload"`
+
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
 }
 
 type WrittenMessageReleasing struct {
@@ -136,6 +150,9 @@ type WrittenMessageReleasing struct {
 	BindingKey     string      `json:"binding_key"`
 	SubscribeGroup string      `json:"subscribe_group"`
 	MessageId      mqapi.MsgId `json:"message_id"`
+
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
 }
 
 type WrittenReply struct {

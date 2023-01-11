@@ -51,3 +51,7 @@ func (n *Node) Leave() error {
 func (n *Node) GetReplyChannel() <-chan *mqapi.Reply {
 	return n.replyChannel
 }
+
+func (n *Node) GetNodeId() mqapi.NodeId {
+	return n.nodeId
+}

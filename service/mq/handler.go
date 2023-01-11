@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/meidoworks/nekoq/service/mqapi"
+
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
 )
@@ -69,7 +71,7 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for {
-		err = requestHandler(r.Context(), ch)
+		err = requestHandler(r.Context(), ch, node)
 		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 			return
 		}
@@ -80,14 +82,14 @@ func (s messagingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func requestHandler(ctx context.Context, c *wsch) error {
+func requestHandler(ctx context.Context, c *wsch, node mqapi.Node) error {
 	p := new(GeneralReq)
 	//FIXME may need check protocol type = MessageBinary
 	if err := wsjson.Read(context.Background(), c.Conn, p); err != nil {
 		return err
 	}
 
-	return dispatch(p, c)
+	return dispatch(p, c, node)
 }
 
 func respondPacket(p *GeneralRes, wc io.WriteCloser) error {

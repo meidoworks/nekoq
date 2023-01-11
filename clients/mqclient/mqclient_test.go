@@ -49,6 +49,8 @@ func (s sayHelloRpcCodec) ResUnmarshal(data []byte) (interface{}, error) {
 }
 
 func TestClientRpc(t *testing.T) {
+	createSampleComponents(t)
+
 	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
 	if err != nil {
 		t.Fatal(err)
@@ -66,19 +68,66 @@ func TestClientRpc(t *testing.T) {
 	}
 	defer sc.Close(context.Background())
 
-	if err := s.RpcHandle("backend.sayHello", sayHelloRpcCodec{}, &mqclient.SimpleRpcHandler{H: func(req interface{}) (interface{}, error) {
+	if err := s.RpcHandle("backend.sayHello", "sg.sg001", sayHelloRpcCodec{}, &mqclient.SimpleRpcHandler{H: func(req interface{}) (interface{}, error) {
 		in := req.(string)
 		return "Hello, " + in + "!", nil
 	}}); err != nil {
-		t.Fatal(s)
+		t.Fatal(err)
 	}
 
-	rpcStub := sc.CreateRpcStub("service.sayHello", "*", sayHelloRpcCodec{})
+	rpcStub := sc.CreateRpcStub("service.sayHello", "all_dc", "pg.pg001", sayHelloRpcCodec{})
 	result, err := rpcStub.Call("world")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(result.(string))
+
+	rpcStub = sc.CreateRpcStub("service.sayHello", "all_dc", "pg.pg001", sayHelloRpcCodec{})
+	result, err = rpcStub.Call("golang")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(result.(string))
+}
+
+func createSampleComponents(t *testing.T) {
+
+	c, err := mqclient.NewClient("ws://127.0.0.1:9301")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetDebug(true)
+
+	s, err := c.Connect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close(context.Background())
+
+	err = s.CreateTopic("service.sayHello", mqclient.TopicOption{
+		DeliveryLevelType: mqclient.AtLeastOnce,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.CreateQueue("backend.sayHello", mqclient.QueueOption{
+		DeliveryLevelType: mqclient.AtLeastOnce,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.BindTopicAndQueue("service.sayHello", "backend.sayHello", "*"); err != nil {
+		t.Fatal(err)
+	}
+
+	// new publish group
+	// bind publish group
+	_, err = s.CreatePublishGroup("pg.pg001", "service.sayHello")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func TestSession_CreateAtMostOnce(t *testing.T) {

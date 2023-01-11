@@ -41,6 +41,7 @@ type ServerSideIncoming struct {
 	IncomingOperation *string           `json:"operation,omitempty"`
 	Message           *Message          `json:"message,omitempty"`
 	MessageReleasing  *MessageReleasing `json:"message_releasing,omitempty"`
+	Reply             *Reply            `json:"reply,omitempty"`
 }
 
 type PublishGroupRes struct {
@@ -107,6 +108,9 @@ type NewMessageRequest struct {
 	Topic        string `json:"topic"`
 	PublishGroup string `json:"publish_group"`
 	BindingKey   string `json:"binding_key"`
+	RpcMeta      *struct {
+		ReplyIdentifier string `json:"reply_identifier"`
+	} `json:"rpc_meta"`
 
 	Payload []byte `json:"payload"`
 }
@@ -115,12 +119,20 @@ type AckMessage struct {
 	SubscribeGroup string       `json:"subscribe_group"`
 	Queue          string       `json:"queue"`
 	MessageId      idgen.IdType `json:"message_id"`
+
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
+	Payload         []byte `json:"payload"`
 }
 
 type ReleaseMessage struct {
 	SubscribeGroup string       `json:"subscribe_group"`
 	Queue          string       `json:"queue"`
 	MessageId      idgen.IdType `json:"message_id"`
+
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
+	Payload         []byte `json:"payload"`
 }
 
 type MessageDesc struct {
@@ -138,6 +150,9 @@ type Message struct {
 	MessageId      idgen.IdType `json:"message_id"`
 	Payload        []byte       `json:"payload"`
 
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
+
 	// immutable values
 	queue     string
 	messageId idgen.IdType
@@ -150,7 +165,16 @@ type MessageReleasing struct {
 	SubscribeGroup string       `json:"subscribe_group"`
 	MessageId      idgen.IdType `json:"message_id"`
 
+	ReplyId         string `json:"reply_id"`
+	ReplyIdentifier string `json:"reply_identifier"`
+
 	// immutable values
 	queue     string
 	messageId idgen.IdType
+}
+
+type Reply struct {
+	ReplyId         idgen.IdType `json:"reply_id"`
+	ReplyIdentifier string       `json:"reply_identifier"`
+	Payload         []byte       `json:"payload"`
 }

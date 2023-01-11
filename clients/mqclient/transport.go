@@ -15,8 +15,11 @@ import (
 )
 
 type _request struct {
-	ch           chan *ServerSideIncoming
-	expectedResp *ServerSideIncoming
+	ch chan *ServerSideIncoming
+}
+
+type _rpcRequest struct {
+	ch chan *ServerSideIncoming
 }
 
 type webChannel struct {
@@ -30,6 +33,9 @@ type webChannel struct {
 	SgServerMessageChannels          map[string]chan *ServerSideIncoming
 	SgServerMessageReleasingChannels map[string]chan *ServerSideIncoming
 	ChannelMapLock                   sync.RWMutex
+
+	rpcRequestMapLock sync.Mutex
+	rpcRequestMap     map[string]*_rpcRequest
 }
 
 func newChannel(address string) (*webChannel, error) {
@@ -49,6 +55,7 @@ func newChannel(address string) (*webChannel, error) {
 	ch.requestIdMap = make(map[string]*_request)
 	ch.SgServerMessageChannels = make(map[string]chan *ServerSideIncoming)
 	ch.SgServerMessageReleasingChannels = make(map[string]chan *ServerSideIncoming)
+	ch.rpcRequestMap = make(map[string]*_rpcRequest)
 	go ch.dispatchLoop() // start dispatch loop
 	return ch, nil
 }
@@ -62,8 +69,7 @@ func (w *webChannel) clearRequestId(id string) {
 func (w *webChannel) writeObj(o *ToServerSidePacket) (<-chan *ServerSideIncoming, error) {
 	// store request
 	r := &_request{
-		ch:           make(chan *ServerSideIncoming, 1),
-		expectedResp: new(ServerSideIncoming),
+		ch: make(chan *ServerSideIncoming, 1),
 	}
 	w.requestLock.Lock()
 	w.requestIdMap[o.RequestId] = r
@@ -116,6 +122,7 @@ DispatchLoop:
 
 			w.requestLock.Lock()
 			r, ok := w.requestIdMap[s.RequestId]
+			delete(w.requestIdMap, s.RequestId)
 			w.requestLock.Unlock()
 			if !ok {
 				log.Println(fmt.Sprintf("request id: %s not found", s.RequestId))
@@ -160,7 +167,17 @@ func (w *webChannel) processIncomingOperation(s *ServerSideIncoming) {
 		}
 		ch <- s
 	case IncomingOperationReply:
-		//TODO receive reply
+		// receive reply
+		rid := s.Reply.ReplyIdentifier
+		w.rpcRequestMapLock.Lock()
+		r, ok := w.rpcRequestMap[rid]
+		delete(w.rpcRequestMap, rid)
+		w.rpcRequestMapLock.Unlock()
+		if !ok {
+			log.Println("rpc identifier not exist:" + fmt.Sprint(rid))
+			return
+		}
+		r.ch <- s
 	default:
 		log.Println("unknown incoming operation:" + (*s.IncomingOperation))
 	}

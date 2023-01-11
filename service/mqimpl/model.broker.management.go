@@ -389,7 +389,7 @@ func (b *Broker) AddNode() (mqapi.Node, error) {
 	}
 
 	b.clientNodeMapLock.Lock()
-	node, ok := b.clientNodeMap[node.nodeId]
+	_, ok := b.clientNodeMap[node.nodeId]
 	if ok {
 		return nil, mqapi.ErrNodeAlreadyExist
 	} else {

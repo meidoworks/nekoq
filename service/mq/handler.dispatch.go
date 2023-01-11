@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	MessageAttrTopic      = "nekoq.topic"
-	MessageAttrBindingKey = "nekoq.binding_key"
+	MessageAttrTopic           = "nekoq.topic"
+	MessageAttrBindingKey      = "nekoq.binding_key"
+	MessageAttrReplyId         = "nekoq.reply.reply_id"
+	MessageAttrReplyIdentifier = "nekoq.reply.reply_identifier"
 )
 
 type wsch struct {
@@ -69,7 +71,7 @@ func newWsch(cid idgen.IdType, conn *websocket.Conn, node mqapi.Node) *wsch {
 	}
 }
 
-func dispatch(p *GeneralReq, c *wsch) error {
+func dispatch(p *GeneralReq, c *wsch, node mqapi.Node) error {
 	const debugFlag = false
 	if debugFlag {
 		log.Println("dispatch request:")
@@ -127,7 +129,7 @@ func dispatch(p *GeneralReq, c *wsch) error {
 		}
 		return nil
 	case "new_message":
-		res, err := handleNewMessage(p)
+		res, err := handleNewMessage(p, node)
 		if debugFlag {
 			log.Println("process new message completed")
 		}
@@ -200,6 +202,11 @@ func (w *wsch) writeMessage(m mqapi.SubChanElem, sgName string) {
 		wm.BindingKey = b
 		wm.Queue = q
 		wm.SubscribeGroup = sgName
+		// reply meta
+		if rid, ok := v.Attributes[MessageAttrReplyId]; ok && len(rid) > 0 {
+			wm.ReplyId = v.Attributes[MessageAttrReplyId][0]
+			wm.ReplyIdentifier = v.Attributes[MessageAttrReplyIdentifier][0]
+		}
 
 		if err := handleResponse(res, nil, func() (io.WriteCloser, error) {
 			return w.Conn.Writer(context.Background(), websocket.MessageBinary)
@@ -235,6 +242,11 @@ func (w *wsch) writeReleasingMessage(m mqapi.ReleaseChanElem, sgName string) {
 		wm.BindingKey = b
 		wm.Queue = q
 		wm.SubscribeGroup = sgName
+		// reply meta
+		if rid, ok := v.Attributes[MessageAttrReplyId]; ok && len(rid) > 0 {
+			wm.ReplyId = v.Attributes[MessageAttrReplyId][0]
+			wm.ReplyIdentifier = v.Attributes[MessageAttrReplyIdentifier][0]
+		}
 
 		if err := handleResponse(res, nil, func() (io.WriteCloser, error) {
 			return w.Conn.Writer(context.Background(), websocket.MessageBinary)
@@ -255,6 +267,7 @@ func processReply(ch *wsch, r *mqapi.Reply) error {
 	rp.ReplyId = idgen.IdType(r.ReplyToNode)
 	rp.ReplyIdentifier = r.ReplyIdentifier
 	rp.Payload = r.Body
+	res.WrittenReply = rp
 
 	if err := handleResponse(res, nil, func() (io.WriteCloser, error) {
 		return ch.Conn.Writer(context.Background(), websocket.MessageBinary)
@@ -287,7 +300,23 @@ func handleReleaseMessage(p *GeneralReq) (*GeneralRes, error) {
 		res := newFailedResponse("400", "parameter invalid", p.RequestId)
 		return res, nil
 	}
-	err := sg.Release(q.QueueId, nil, &mqapi.Ack{AckIdList: []mqapi.MessageId{{p.ReleaseMessage.MessageId, mqapi.OutId{}}}})
+	var reply *mqapi.Reply
+	if len(p.ReleaseMessage.ReplyId) > 0 {
+		reply = new(mqapi.Reply)
+		reply.ReplyType = 1
+		if id, err := idgen.FromHexString(p.ReleaseMessage.ReplyId); err != nil {
+			res := newFailedResponse("400", "parameter invalid", p.RequestId)
+			return res, nil
+		} else {
+			reply.ReplyToNode = mqapi.NodeId(id)
+		}
+		reply.ReplyIdentifier = p.ReleaseMessage.ReplyIdentifier
+		reply.Body = p.ReleaseMessage.Payload
+	}
+	err := sg.Release(q.QueueId, nil, &mqapi.Ack{
+		AckIdList: []mqapi.MessageId{{p.ReleaseMessage.MessageId, mqapi.OutId{}}},
+		Reply:     reply,
+	})
 	if err != nil {
 		log.Println("commit message failed:" + fmt.Sprint(p.ReleaseMessage.MessageId))
 		res := newFailedResponse("500", "internal error", p.RequestId)
@@ -316,7 +345,23 @@ func handleAckMessage(p *GeneralReq) (*GeneralRes, error) {
 		res := newFailedResponse("400", "parameter invalid", p.RequestId)
 		return res, nil
 	}
-	err := sg.Commit(q.QueueId, nil, &mqapi.Ack{AckIdList: []mqapi.MessageId{{p.AckMessage.MessageId, mqapi.OutId{}}}})
+	var reply *mqapi.Reply
+	if len(p.AckMessage.ReplyId) > 0 {
+		reply = new(mqapi.Reply)
+		reply.ReplyType = 1
+		if id, err := idgen.FromHexString(p.AckMessage.ReplyId); err != nil {
+			res := newFailedResponse("400", "parameter invalid", p.RequestId)
+			return res, nil
+		} else {
+			reply.ReplyToNode = mqapi.NodeId(id)
+		}
+		reply.ReplyIdentifier = p.AckMessage.ReplyIdentifier
+		reply.Body = p.AckMessage.Payload
+	}
+	err := sg.Commit(q.QueueId, nil, &mqapi.Ack{
+		AckIdList: []mqapi.MessageId{{p.AckMessage.MessageId, mqapi.OutId{}}},
+		Reply:     reply,
+	})
 	if err != nil {
 		log.Println("commit message failed:" + fmt.Sprint(p.AckMessage.MessageId))
 		res := newFailedResponse("500", "internal error", p.RequestId)
@@ -374,7 +419,7 @@ func handleNewMessageCommit(p *GeneralReq) (*GeneralRes, error) {
 	return newSuccessResponse(p.RequestId, "new_message_commit"), nil
 }
 
-func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
+func handleNewMessage(p *GeneralReq, node mqapi.Node) (*GeneralRes, error) {
 	// validation
 	if p.NewMessage == nil {
 		res := newFailedResponse("400", "parameter invalid", p.RequestId)
@@ -429,6 +474,11 @@ func handleNewMessage(p *GeneralReq) (*GeneralRes, error) {
 				Body: p.NewMessage.Payload,
 			},
 		},
+	}
+	// handle rpc request
+	if p.NewMessage.RpcMeta != nil {
+		msg.BatchMessage[0].Attributes[MessageAttrReplyId] = []string{idgen.IdType(node.GetNodeId()).HexString()}
+		msg.BatchMessage[0].Attributes[MessageAttrReplyIdentifier] = []string{p.NewMessage.RpcMeta.ReplyIdentifier}
 	}
 	var acks mqapi.Ack
 	switch dlt {

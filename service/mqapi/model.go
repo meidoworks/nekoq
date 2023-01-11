@@ -40,6 +40,8 @@ type Node interface {
 	DirectReply(reply *Reply, ctx *Ctx) error
 	GetReplyChannel() <-chan *Reply
 
+	GetNodeId() NodeId
+
 	// Leave means the end of Node lifecycle
 	Leave() error
 }
