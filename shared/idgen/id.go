@@ -10,26 +10,27 @@ import (
 )
 
 var (
-	_EMPTY_RESULT         = [2]int64{0, 0}
-	_EMPTY_RANGE_RESULT   = []IdType{}
-	_ERROR_CLOCK_BACKWARD = errors.New("clock backward")
-	_MAX_VALUE_INT32      = int32(0x7fffffff)
+	emptyResult      = [2]int64{0, 0}
+	emptyRangeResult []IdType
+	maxValueInt32    = int32(0x7fffffff)
+
+	ErrClockBackward = errors.New("clock backward")
 )
 
 const (
-	_START_TIME_MILLIS int64 = 1521639000000 // 20180321213000
+	startTimeMillis int64 = 1521639000000 // 20180321213000
 )
 
 type IdType [2]int64
 
-func (this IdType) CompareTo(id2 IdType) int {
-	if this[0] > id2[0] {
+func (i IdType) CompareTo(id2 IdType) int {
+	if i[0] > id2[0] {
 		return 1
-	} else if this[0] < id2[0] {
+	} else if i[0] < id2[0] {
 		return -1
-	} else if this[1] > id2[1] {
+	} else if i[1] > id2[1] {
 		return 1
-	} else if this[1] < id2[1] {
+	} else if i[1] < id2[1] {
 		return -1
 	} else {
 		return 0
@@ -67,7 +68,8 @@ type IdGen struct {
 	elementIdMask int64
 }
 
-// 48 bits time + 16 bits nodeId + 32 bits elementId + 32 bits inc
+// NewIdGen creates ID Generator
+// Format of Id: 48 bits time + 16 bits nodeId + 32 bits elementId + 32 bits inc
 func NewIdGen(nodeId int16, elementId int32) *IdGen {
 	return &IdGen{
 		time:          0,
@@ -79,42 +81,42 @@ func NewIdGen(nodeId int16, elementId int32) *IdGen {
 
 func (id *IdGen) getTimeMillis() int64 {
 	n := time.Now()
-	return int64((n.Unix()*1000 + (int64(n.Nanosecond()%1000000000) / 1000000)) & 0x7fffffffffffffff)
+	return (n.Unix()*1000 + (int64(n.Nanosecond()%1000000000) / 1000000)) & 0x7fffffffffffffff
 }
 
-func (this *IdGen) NextN(cnt int) ([]IdType, error) {
+func (id *IdGen) NextN(cnt int) ([]IdType, error) {
 	result := make([]IdType, cnt)
-	timeInMills := this.getTimeMillis()
-	this.lock.Lock()
+	timeInMills := id.getTimeMillis()
+	id.lock.Lock()
 
-	if timeInMills > this.time {
+	if timeInMills > id.time {
 		// set seq to zero & return result
-		this.time = timeInMills
-		this.seq = int32(cnt - 1)
-		this.lock.Unlock()
-		return makeIdRange(timeInMills, this.nodeIdMask, this.elementIdMask, result, 0, int32(cnt-1)), nil
-	} else if timeInMills == this.time {
-		newSeq := this.seq + int32(cnt-1)
+		id.time = timeInMills
+		id.seq = int32(cnt - 1)
+		id.lock.Unlock()
+		return makeIdRange(timeInMills, id.nodeIdMask, id.elementIdMask, result, 0, int32(cnt-1)), nil
+	} else if timeInMills == id.time {
+		newSeq := id.seq + int32(cnt-1)
 		// inc seq or wait until next time
-		if newSeq < _MAX_VALUE_INT32 {
+		if newSeq < maxValueInt32 {
 			// inc seq
-			prevSeq := this.seq
-			this.seq = newSeq
-			this.lock.Unlock()
-			return makeIdRange(timeInMills, this.nodeIdMask, this.elementIdMask, result, prevSeq, newSeq-1), nil
+			prevSeq := id.seq
+			id.seq = newSeq
+			id.lock.Unlock()
+			return makeIdRange(timeInMills, id.nodeIdMask, id.elementIdMask, result, prevSeq, newSeq-1), nil
 		} else {
 			// wait until next time
-			newtime := this.tillNextMillisecond(timeInMills)
+			newtime := id.tillNextMillisecond(timeInMills)
 			// success
-			this.time = newtime
-			this.seq = int32(cnt - 1)
-			this.lock.Unlock()
-			return makeIdRange(newtime, this.nodeIdMask, this.elementIdMask, result, 0, int32(cnt-1)), nil
+			id.time = newtime
+			id.seq = int32(cnt - 1)
+			id.lock.Unlock()
+			return makeIdRange(newtime, id.nodeIdMask, id.elementIdMask, result, 0, int32(cnt-1)), nil
 		}
 	} else {
 		// error: clock backward
-		this.lock.Unlock()
-		return _EMPTY_RANGE_RESULT, _ERROR_CLOCK_BACKWARD
+		id.lock.Unlock()
+		return emptyRangeResult, ErrClockBackward
 	}
 }
 
@@ -130,7 +132,7 @@ func (id *IdGen) Next() (IdType, error) {
 		return makeId(timeInMills, id.nodeIdMask, id.elementIdMask, 0), nil
 	} else if timeInMills == id.time {
 		// inc seq or wait until next time
-		if id.seq < _MAX_VALUE_INT32 {
+		if id.seq < maxValueInt32 {
 			// inc seq
 			id.seq = id.seq + 1
 			newseq := id.seq
@@ -148,21 +150,21 @@ func (id *IdGen) Next() (IdType, error) {
 	} else {
 		// error: clock backward
 		id.lock.Unlock()
-		return _EMPTY_RESULT, _ERROR_CLOCK_BACKWARD
+		return emptyResult, ErrClockBackward
 	}
 }
 
 func makeIdRange(time, nodeIdMask int64, elementId int64, result []IdType, seqStart int32, seqEnd int32) []IdType {
 	for idx, start := 0, seqStart; start <= seqEnd; idx, start = idx+1, start+1 {
 		l := elementId | (int64(start) & 0x00000000ffffffff)
-		result[idx] = [2]int64{((time - _START_TIME_MILLIS) << 16) | nodeIdMask, l}
+		result[idx] = [2]int64{((time - startTimeMillis) << 16) | nodeIdMask, l}
 	}
 	return result
 }
 
 func makeId(time, nodeIdMask int64, elementId int64, seq int32) IdType {
 	l := elementId | (int64(seq) & 0x00000000ffffffff)
-	return [2]int64{((time - _START_TIME_MILLIS) << 16) | nodeIdMask, l}
+	return [2]int64{((time - startTimeMillis) << 16) | nodeIdMask, l}
 }
 
 func (id *IdGen) tillNextMillisecond(time int64) int64 {
