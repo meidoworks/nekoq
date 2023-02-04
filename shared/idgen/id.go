@@ -106,12 +106,12 @@ func (id *IdGen) NextN(cnt int) ([]IdType, error) {
 			return makeIdRange(timeInMills, id.nodeIdMask, id.elementIdMask, result, prevSeq, newSeq-1), nil
 		} else {
 			// wait until next time
-			newtime := id.tillNextMillisecond(timeInMills)
+			newTime := id.tillNextMillisecond(timeInMills)
 			// success
-			id.time = newtime
+			id.time = newTime
 			id.seq = int32(cnt - 1)
 			id.lock.Unlock()
-			return makeIdRange(newtime, id.nodeIdMask, id.elementIdMask, result, 0, int32(cnt-1)), nil
+			return makeIdRange(newTime, id.nodeIdMask, id.elementIdMask, result, 0, int32(cnt-1)), nil
 		}
 	} else {
 		// error: clock backward

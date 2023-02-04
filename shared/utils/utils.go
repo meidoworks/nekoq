@@ -1,4 +1,4 @@
-package mqimpl
+package utils
 
 func CopyAddMap[K comparable, V any](src map[K]V, newKey K, newValue V) map[K]V {
 	c := make(chan map[K]V)

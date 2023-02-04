@@ -3,6 +3,7 @@ package mqimpl
 import (
 	"github.com/meidoworks/nekoq/service/mqapi"
 	"github.com/meidoworks/nekoq/shared/idgen"
+	"github.com/meidoworks/nekoq/shared/utils"
 )
 
 func (b *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOption) (mqapi.Topic, error) {
@@ -44,7 +45,7 @@ func (b *Broker) addTopic(topic *Topic) error {
 		return mqapi.ErrTopicAlreadyExist
 	}
 
-	b.topicMap = CopyAddMap(b.topicMap, topic.topicID, topic)
+	b.topicMap = utils.CopyAddMap(b.topicMap, topic.topicID, topic)
 	return nil
 }
 
@@ -106,7 +107,7 @@ func (b *Broker) addQueue(queue *Queue) error {
 		return mqapi.ErrQueueAlreadyExist
 	}
 
-	b.queueMap = CopyAddMap(b.queueMap, queue.queueID, queue)
+	b.queueMap = utils.CopyAddMap(b.queueMap, queue.queueID, queue)
 	return nil
 }
 
@@ -218,7 +219,7 @@ func (b *Broker) addPublishGroup(publishGroup *PublishGroup) error {
 		return mqapi.ErrPublishGroupAlreadyExist
 	}
 
-	b.publishGroupMap = CopyAddMap(b.publishGroupMap, publishGroup.publishGroupID, publishGroup)
+	b.publishGroupMap = utils.CopyAddMap(b.publishGroupMap, publishGroup.publishGroupID, publishGroup)
 	return nil
 }
 
@@ -246,7 +247,7 @@ func (b *Broker) BindPublishGroupToTopic(publishGroupId mqapi.PublishGroupId, to
 	pgTopicMap := publishGroup.topicMap
 	_, ok = pgTopicMap[topicId]
 	if !ok {
-		publishGroup.topicMap = CopyAddMap(pgTopicMap, topicId, topic)
+		publishGroup.topicMap = utils.CopyAddMap(pgTopicMap, topicId, topic)
 	}
 
 	return nil
@@ -285,7 +286,7 @@ func (b *Broker) addSubscribeGroup(subscribeGroup *SubscribeGroup) error {
 		return mqapi.ErrSubscribeGroupAlreadyExist
 	}
 
-	b.subscribeGroup = CopyAddMap(b.subscribeGroup, subscribeGroup.subscribeGroupID, subscribeGroup)
+	b.subscribeGroup = utils.CopyAddMap(b.subscribeGroup, subscribeGroup.subscribeGroupID, subscribeGroup)
 	return nil
 }
 
