@@ -4,7 +4,7 @@ import "errors"
 
 type NekoConfig struct {
 	NekoQ struct {
-		NodeId *int32 `toml:"node_id"`
+		NodeId *int16 `toml:"node_id"`
 	} `toml:"nekoq"`
 
 	IdGenConf IdGenConfig `toml:"idgen"`

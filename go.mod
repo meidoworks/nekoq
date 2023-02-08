@@ -7,6 +7,7 @@ require (
 	github.com/meidoworks/nekoq-common v0.0.10
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pelletier/go-toml/v2 v2.0.6
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.9.3
 	nhooyr.io/websocket v1.8.7
 )

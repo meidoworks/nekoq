@@ -1,21 +1,13 @@
 # Naming
 
-## 1. Getting Started
+## 1. Features
 
-setup steps
+* [ ] Discovery service
+* [ ] Discovery: peer full/incremental sync
+* [ ] Discovery: client state report
+* [ ] Discovery: support multiple register from single client
+* [ ] Discovery: Polling(watch) Operation and API
+* [ ] Discovery optimization: Streaming API for large data sync
+* [ ] Discovery optimization: Reduce calculation and network transport(especially for fan-out scenario)
+* [ ] Discovery security: authentication
 
-#### 1.1. tool - initnodeinfo
-
-generate init node info file
-
-```
-./initnodeinfo -nodeId=naming00001 -uniqId=1
-```
-
-#### 1.2. tool - initlog
-
-generate init log file for init node
-
-```
-//TODO
-```

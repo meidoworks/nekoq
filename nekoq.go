@@ -29,6 +29,9 @@ func main() {
 	if err := toml.Unmarshal(cfgData, nekoCfg); err != nil {
 		panic(err)
 	}
+	if err := nekoCfg.Validate(); err != nil {
+		panic(err)
+	}
 
 	time.Sleep(1 * time.Hour)
 }
