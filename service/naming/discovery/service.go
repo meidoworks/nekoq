@@ -1,10 +1,16 @@
 package discovery
 
-type Record struct {
+type RecordKey struct {
 	Service string `json:"service"`
 	Area    string `json:"area"`
 	NodeId  string `json:"node_id"`
-	Version int64  `json:"version"`
+}
+
+type Record struct {
+	Service       string `json:"service"`
+	Area          string `json:"area"`
+	NodeId        string `json:"node_id"`
+	RecordVersion int64  `json:"record_version"`
 
 	Tags        []string `json:"tags"`
 	ServiceData []byte   `json:"service_data"`
@@ -56,15 +62,14 @@ type ControlData struct {
 // NodeService node service for processing node request
 // TODO working in progress
 type NodeService interface {
-	SelfKeepAlive()
-	SlimKeepAlive()
-	Offline()
+	SelfKeepAlive(record *Record) error
+	SlimKeepAlive(key *RecordKey) error
+	Offline(key *RecordKey) error
 	ControlData(data *ControlData) error
 
 	CustomInformation(info *CustomInfo) error
 
-	Fetch()
-	Search()
+	Fetch(service, area string) ([]*Record, error)
 }
 
 type Node struct {

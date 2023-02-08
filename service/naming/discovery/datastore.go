@@ -4,6 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
+)
+
+const (
+	IncrementalOperationChange = "change"
+	IncrementalOperationRemove = "remove"
 )
 
 type DataStore struct {
@@ -15,8 +21,13 @@ type DataStore struct {
 }
 
 func NewDataStore() *DataStore {
+	sizeOfHistory := 128
 	return &DataStore{
-		LocalData: localData{Data: map[string]map[string][]*Record{}},
+		LocalData: localData{
+			Data:          map[string]map[string][]*Record{},
+			ChangeLog:     make([][]*IncrementalRecord, sizeOfHistory),
+			SizeOfHistory: int64(sizeOfHistory),
+		},
 		PeerData: peerData{
 			peerDetailMap:  map[int16]map[string]*Record{},
 			peerVersionMap: map[int16]string{},
@@ -27,6 +38,11 @@ func NewDataStore() *DataStore {
 
 type localData struct {
 	Data map[string]map[string][]*Record // service -> { area -> service_list }
+
+	ChangeLog [][]*IncrementalRecord
+
+	SizeOfHistory int64
+	Version       int64
 }
 
 type peerData struct {
@@ -75,9 +91,9 @@ func (d *DataStore) UpdatePeer(peerId int16, incSet *IncrementalSet) error {
 	}
 	for _, v := range incSet.Records {
 		switch v.Operation {
-		case "change":
+		case IncrementalOperationChange:
 			detailMap[makeServiceKey(&v.Record)] = &v.Record
-		case "remove":
+		case IncrementalOperationRemove:
 			delete(detailMap, makeServiceKey(&v.Record))
 		}
 	}
@@ -131,6 +147,110 @@ func (d *DataStore) regenerateMerged() {
 	d.MergedData.Data = newMap
 }
 
+func (d *DataStore) KeepAliveRecord(record *Record) {
+	d.Lock()
+	defer d.Unlock()
+
+	// inc version
+	atomic.AddInt64(&d.LocalData.Version, 1)
+	// update history
+	var slot = []*IncrementalRecord{{
+		Record:    *record,
+		Operation: IncrementalOperationChange,
+	}}
+	offset := d.LocalData.Version % d.LocalData.SizeOfHistory
+	d.LocalData.ChangeLog[offset] = slot
+	// update data
+	updateLocalDataMap(record, d.LocalData.Data)
+	// regenerate merged data
+	d.regenerateMerged()
+}
+
+func updateLocalDataMap(record *Record, m map[string]map[string][]*Record) {
+	areaMap, ok := m[record.Service]
+	if !ok {
+		areaMap = map[string][]*Record{}
+		m[record.Service] = areaMap
+	}
+	srvList, ok := areaMap[record.Area]
+	if ok {
+		found := false
+		for i, v := range srvList {
+			if v.NodeId == record.NodeId {
+				srvList[i] = record
+				found = true
+				break
+			}
+		}
+		if !found {
+			areaMap[record.Area] = append(srvList, record)
+		}
+	} else {
+		areaMap[record.Area] = append(srvList, record)
+	}
+}
+
 func makeServiceKey(record *Record) string {
 	return fmt.Sprint(record.Service, "||", record.Area, "||", record.NodeId)
+}
+
+func (d *DataStore) FetchLocalFull() (*FullSet, error) {
+	d.RLock()
+	defer d.RUnlock()
+
+	var records []*Record
+	for _, v := range d.LocalData.Data {
+		for _, vv := range v {
+			records = append(records, vv...)
+		}
+	}
+
+	fullSet := &FullSet{
+		CurrentVersion: fmt.Sprint(d.LocalData.Version),
+		Records:        records,
+	}
+
+	return fullSet, nil
+}
+
+func (d *DataStore) FetchLocalIncremental(lastVersion int64) (*IncrementalSet, error) {
+	d.RLock()
+	defer d.RUnlock()
+
+	// history rewind
+	if lastVersion+d.LocalData.SizeOfHistory <= d.LocalData.Version {
+		return &IncrementalSet{
+			CurrentVersion: "",
+			ReSync:         true,
+			Records:        nil,
+		}, nil
+	}
+
+	var records []*IncrementalRecord
+	for i := lastVersion + 1; i <= d.LocalData.Version; i++ {
+		for _, v := range d.LocalData.ChangeLog[lastVersion%d.LocalData.SizeOfHistory] {
+			records = append(records, v)
+		}
+	}
+
+	return &IncrementalSet{
+		CurrentVersion: fmt.Sprint(d.LocalData.Version),
+		ReSync:         false,
+		Records:        records,
+	}, nil
+}
+
+func (d *DataStore) Fetch(service, area string) ([]*Record, error) {
+	d.RLock()
+	defer d.RUnlock()
+
+	areaMap, ok := d.MergedData.Data[service]
+	if !ok {
+		return nil, nil
+	}
+	rs, ok := areaMap[area]
+	if !ok {
+		return nil, nil
+	}
+	return rs, nil
 }
