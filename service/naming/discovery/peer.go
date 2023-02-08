@@ -88,7 +88,7 @@ func (p *Peer) ScheduleLoop() {
 			p.lastSyncVersion = inc.CurrentVersion
 		case PeerStateExpired:
 			if now.Sub(p.stateTimeStamp) > 60*time.Second {
-				// cleanup dead peer after N seconds
+				// cleanup dead peer after 60 seconds
 				if err := p.dataStore.CleanupPeer(p.peerId); err != nil {
 					_peerLogger.Errorf("CleanupPeer [%d] failed: %s", p.peerId, err)
 				} else {

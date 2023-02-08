@@ -147,6 +147,47 @@ func (d *DataStore) regenerateMerged() {
 	d.MergedData.Data = newMap
 }
 
+func (d *DataStore) OfflineRecord(key *RecordKey) {
+	d.Lock()
+	defer d.Unlock()
+
+	// remove from data
+	if areaMap, ok := d.LocalData.Data[key.Service]; ok {
+		if srvList, ok := areaMap[key.Area]; ok {
+			found := false
+			var idx int
+			for i, v := range srvList {
+				if v.NodeId == key.NodeId {
+					found = true
+					idx = i
+				}
+			}
+			if found {
+				var newList = make([]*Record, len(srvList)-1)
+				copy(newList[0:idx], srvList[0:idx])
+				copy(newList[idx:], srvList[idx+1:])
+				areaMap[key.Area] = newList
+				// inc version
+				atomic.AddInt64(&d.LocalData.Version, 1)
+				// update history only after service existing
+				r := &Record{
+					Service: key.Service,
+					Area:    key.Area,
+					NodeId:  key.NodeId,
+				}
+				var slot = []*IncrementalRecord{{
+					Record:    *r,
+					Operation: IncrementalOperationRemove,
+				}}
+				offset := d.LocalData.Version % d.LocalData.SizeOfHistory
+				d.LocalData.ChangeLog[offset] = slot
+			}
+		}
+	}
+	// regenerate merged data
+	d.regenerateMerged()
+}
+
 func (d *DataStore) KeepAliveRecord(record *Record) {
 	d.Lock()
 	defer d.Unlock()
@@ -228,7 +269,7 @@ func (d *DataStore) FetchLocalIncremental(lastVersion int64) (*IncrementalSet, e
 
 	var records []*IncrementalRecord
 	for i := lastVersion + 1; i <= d.LocalData.Version; i++ {
-		for _, v := range d.LocalData.ChangeLog[lastVersion%d.LocalData.SizeOfHistory] {
+		for _, v := range d.LocalData.ChangeLog[i%d.LocalData.SizeOfHistory] {
 			records = append(records, v)
 		}
 	}

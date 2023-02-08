@@ -53,6 +53,26 @@ func TestInternalApiSlimUsage(t *testing.T) {
 		t.Fatal("expect 1 result")
 	}
 
+	if err := ns1.Offline(&discovery.RecordKey{
+		Service: "demo.service01",
+		Area:    "cn",
+		NodeId:  "AAA0001",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(3 * time.Second)
+
+	if r, err := ns2.Fetch("demo.service01", "cn"); err != nil {
+		t.Fatal(err)
+	} else if len(r) != 0 {
+		t.Fatal("expect 0 result")
+	}
+	if r, err := ns3.Fetch("demo.service01", "cn"); err != nil {
+		t.Fatal(err)
+	} else if len(r) != 0 {
+		t.Fatal("expect 0 result")
+	}
 }
 
 type testService struct {

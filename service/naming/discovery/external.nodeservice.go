@@ -14,8 +14,8 @@ func (l *LocalNodeService) SlimKeepAlive(key *RecordKey) error {
 }
 
 func (l *LocalNodeService) Offline(key *RecordKey) error {
-	//TODO implement me
-	panic("implement me")
+	l.DataStore.OfflineRecord(key)
+	return nil
 }
 
 func (l *LocalNodeService) ControlData(data *ControlData) error {
