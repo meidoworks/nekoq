@@ -14,24 +14,26 @@ type failOverWorkGroup struct {
 }
 
 func (f failOverWorkGroup) Run(fn func() bool) {
-	for {
-		shutdownChannel := make(chan bool, 1)
-		go func() {
-			defer func() {
-				err := recover()
-				if err != nil {
-					_workgroupLogger.Errorln("WorkGroup will restart task after reporting panic:", err)
-					shutdownChannel <- false
-				}
+	go func() {
+		for {
+			shutdownChannel := make(chan bool, 1)
+			func() {
+				defer func() {
+					err := recover()
+					if err != nil {
+						_workgroupLogger.Errorln("WorkGroup will restart task after reporting panic:", err)
+						shutdownChannel <- false
+					}
+				}()
+				shutdown := fn()
+				shutdownChannel <- shutdown
 			}()
-			shutdown := fn()
-			shutdownChannel <- shutdown
-		}()
-		if shutdown := <-shutdownChannel; shutdown {
-			break
+			if shutdown := <-shutdownChannel; shutdown {
+				break
+			}
+			_workgroupLogger.Infoln("WorkGroup reports restarting task after last task complete")
 		}
-		_workgroupLogger.Infoln("WorkGroup reports restarting task after last task complete")
-	}
+	}()
 }
 
 func WithFailOver() workGroup {
