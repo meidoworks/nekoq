@@ -151,6 +151,7 @@ func (d *DataStore) OfflineRecord(key *RecordKey) {
 	d.Lock()
 	defer d.Unlock()
 
+	changed := false
 	// remove from data
 	if areaMap, ok := d.LocalData.Data[key.Service]; ok {
 		if srvList, ok := areaMap[key.Area]; ok {
@@ -163,6 +164,7 @@ func (d *DataStore) OfflineRecord(key *RecordKey) {
 				}
 			}
 			if found {
+				changed = true
 				var newList = make([]*Record, len(srvList)-1)
 				copy(newList[0:idx], srvList[0:idx])
 				copy(newList[idx:], srvList[idx+1:])
@@ -184,8 +186,10 @@ func (d *DataStore) OfflineRecord(key *RecordKey) {
 			}
 		}
 	}
-	// regenerate merged data
-	d.regenerateMerged()
+	if changed {
+		// regenerate merged data
+		d.regenerateMerged()
+	}
 }
 
 func (d *DataStore) KeepAliveRecord(record *Record) {

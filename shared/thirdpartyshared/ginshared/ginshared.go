@@ -44,6 +44,18 @@ func RenderError(err error) Render {
 	return errorRender{Err: err}
 }
 
+type jsonRender struct {
+	HttpStatus int
+	Object     interface{}
+}
+
+func RenderJson(status int, object interface{}) Render {
+	return jsonRender{
+		HttpStatus: status,
+		Object:     object,
+	}
+}
+
 type DefaultHandler func(ctx *gin.Context) Render
 
 func Wrap(f DefaultHandler) func(ctx *gin.Context) {
@@ -57,6 +69,8 @@ func Wrap(f DefaultHandler) func(ctx *gin.Context) {
 			ctx.Status(r.Status)
 		case *stringRender:
 			ctx.String(r.Status, r.String)
+		case jsonRender:
+			ctx.JSON(r.HttpStatus, r.Object)
 		default:
 			ctx.Status(http.StatusInternalServerError)
 		}

@@ -19,3 +19,7 @@ func (n *NekoConfig) Validate() error {
 	}
 	return nil
 }
+
+func (n *NekoConfig) MergeDefault() {
+	//TODO apply default to current config
+}

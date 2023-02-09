@@ -10,6 +10,7 @@ func (l *LocalNodeService) SelfKeepAlive(record *Record) error {
 }
 
 func (l *LocalNodeService) SlimKeepAlive(key *RecordKey) error {
+	// currently no need to keep alive inside LocalNodeService
 	return nil
 }
 
