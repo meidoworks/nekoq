@@ -37,3 +37,14 @@ func TestRandomOrder(t *testing.T) {
 		t.Fatal("expected empty")
 	}
 }
+
+func BenchmarkLargeSamePriority(b *testing.B) {
+	p := priorityqueue.NewMinPriorityQueue[int]()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for n := 0; n < 100; n++ {
+			p.Push(1, 1)
+		}
+	}
+}

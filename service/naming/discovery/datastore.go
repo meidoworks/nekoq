@@ -155,6 +155,7 @@ func (d *DataStore) OfflineNRecords(keys []*RecordKey) {
 	d.Lock()
 	defer d.Unlock()
 
+	var changeLog = make([]*IncrementalRecord, 0, 32)
 	changed := false
 	for _, key := range keys {
 		// remove from data
@@ -175,25 +176,26 @@ func (d *DataStore) OfflineNRecords(keys []*RecordKey) {
 					copy(newList[0:idx], srvList[0:idx])
 					copy(newList[idx:], srvList[idx+1:])
 					areaMap[key.Area] = newList
-					// inc version
-					atomic.AddInt64(&d.LocalData.Version, 1)
-					// update history only after service existing
+					// add to history only after service existing
 					r := &Record{
 						Service: key.Service,
 						Area:    key.Area,
 						NodeId:  key.NodeId,
 					}
-					var slot = []*IncrementalRecord{{
+					changeLog = append(changeLog, &IncrementalRecord{
 						Record:    *r,
 						Operation: IncrementalOperationRemove,
-					}}
-					offset := d.LocalData.Version % d.LocalData.SizeOfHistory
-					d.LocalData.ChangeLog[offset] = slot
+					})
 				}
 			}
 		}
 	}
 	if changed {
+		// inc version
+		atomic.AddInt64(&d.LocalData.Version, 1)
+		// update history
+		offset := d.LocalData.Version % d.LocalData.SizeOfHistory
+		d.LocalData.ChangeLog[offset] = changeLog
 		// regenerate merged data
 		d.regenerateMerged()
 	}
