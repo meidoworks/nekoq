@@ -110,7 +110,9 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 	n.timeoutLock.Lock()
 	defer n.timeoutLock.Unlock()
 
+	count := 0
 	for entry := n.timeoutEntryHead.next; entry != nil; entry = entry.next {
+		count++
 		if now.Sub(entry.LatestTime) > threshold {
 			if err := n.recordFinalizer(entry.RecordKey); err != nil {
 				_nodeStatusLogger.Errorf("service finalize error: %s", err)
@@ -123,6 +125,7 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 			}
 		}
 	}
+	_nodeStatusLogger.Infof("node status checker - scaned record: [%d], time: [%d]ms", count, time.Now().UnixMilli()-now.UnixMilli())
 }
 
 func NewNodeStatusManager() *NodeStatusManager {
