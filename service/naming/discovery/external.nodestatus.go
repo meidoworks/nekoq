@@ -153,7 +153,9 @@ func NewNodeStatusManager() *NodeStatusManager {
 	mgr.timeoutMap = map[string]*TimeoutEntry{}
 	mgr.timeoutEntryHead = new(TimeoutEntry)
 	mgr.randGen = rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
-	mgr.timeoutQueue = priorityqueue.NewMinPriorityQueue[*TimeoutEntry]()
+	mgr.timeoutQueue = priorityqueue.NewMinPriorityQueue[*TimeoutEntry](
+		priorityqueue.WithPreallocateSize[*TimeoutEntry](8 * 65536),
+	)
 
 	workgroup.WithFailOver().Run(mgr.KeepAliveLoop)
 

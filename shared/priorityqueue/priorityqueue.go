@@ -4,12 +4,23 @@ import (
 	"container/heap"
 )
 
+type Option[T any] func(queue *PriorityQueue[T])
+
 type PriorityQueue[T any] struct {
 	priorityQueue priorityQueue[T]
 }
 
-func NewMinPriorityQueue[T any]() *PriorityQueue[T] {
+func WithPreallocateSize[T any](n int) Option[T] {
+	return func(queue *PriorityQueue[T]) {
+		queue.priorityQueue = make(priorityQueue[T], n)
+	}
+}
+
+func NewMinPriorityQueue[T any](options ...Option[T]) *PriorityQueue[T] {
 	p := new(PriorityQueue[T])
+	for _, option := range options {
+		option(p)
+	}
 	heap.Init(&p.priorityQueue)
 	return p
 }
