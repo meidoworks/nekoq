@@ -9,6 +9,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	_keepAliveLoopInterview = 5
+	_serviceTTL             = 20
+)
+
 var _nodeStatusLogger = logrus.New()
 
 type TimeoutEntry struct {
@@ -91,8 +96,8 @@ func (n *NodeStatusManager) Offline(recordKey *RecordKey) error {
 }
 
 func (n *NodeStatusManager) KeepAliveLoop() bool {
-	ticker := time.NewTicker(5 * time.Second) // 5s walk through all node
-	threshold := 20 * time.Second             // 20s timeout to cleanup
+	ticker := time.NewTicker(_keepAliveLoopInterview * time.Second) // walk through all node interval
+	threshold := _serviceTTL * time.Second                          // timeout to cleanup
 
 	for {
 		_ = <-ticker.C // do not use the time from ticker

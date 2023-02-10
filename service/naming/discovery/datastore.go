@@ -12,6 +12,10 @@ const (
 	IncrementalOperationRemove = "remove"
 )
 
+const (
+	_sizeOfHistory = 256
+)
+
 type DataStore struct {
 	LocalData  localData
 	PeerData   peerData
@@ -21,7 +25,7 @@ type DataStore struct {
 }
 
 func NewDataStore() *DataStore {
-	sizeOfHistory := 128
+	sizeOfHistory := _sizeOfHistory
 	return &DataStore{
 		LocalData: localData{
 			Data:          map[string]map[string][]*Record{},

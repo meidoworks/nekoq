@@ -25,8 +25,8 @@ func NewLocalPeerService(dataStore *DataStore) PeerService {
 	return lps
 }
 
-type RemoteClientPeerService struct {
+type HttpServerPeerService struct {
 }
 
-type HttpServerPeerService struct {
+type RemoteClientPeerService struct {
 }

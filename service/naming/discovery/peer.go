@@ -8,6 +8,12 @@ import (
 
 var _peerLogger = logrus.New()
 
+const (
+	_peerScheduleLoopInterview = 1
+	_peerSyncTTL               = 20
+	_peerTTL                   = 60
+)
+
 type PeerState int
 
 const (
@@ -44,8 +50,8 @@ func StartPeer(peerWrapper PeerService, peerId int16, stor *DataStore) (*Peer, e
 }
 
 func (p *Peer) ScheduleLoop() {
-	// trigger interval: 1s
-	ticker := time.NewTicker(1 * time.Second)
+	// trigger interval
+	ticker := time.NewTicker(_peerScheduleLoopInterview * time.Second)
 	for now := range ticker.C {
 		switch p.state {
 		case PeerStateInit:
@@ -62,7 +68,7 @@ func (p *Peer) ScheduleLoop() {
 			p.stateTimeStamp = time.Now()
 			p.lastSyncVersion = f.CurrentVersion
 		case PeerStateFull:
-			if now.Sub(p.stateTimeStamp) > 20*time.Second { // 20s timeout after no successful update
+			if now.Sub(p.stateTimeStamp) > _peerSyncTTL*time.Second { // ttl after no successful update
 				p.state = PeerStateExpired
 				p.stateTimeStamp = time.Now()
 				_peerLogger.Errorln("Peer state sync expired. Turning into expired state.")
@@ -87,8 +93,8 @@ func (p *Peer) ScheduleLoop() {
 			p.stateTimeStamp = time.Now()
 			p.lastSyncVersion = inc.CurrentVersion
 		case PeerStateExpired:
-			if now.Sub(p.stateTimeStamp) > 60*time.Second {
-				// cleanup dead peer after 60 seconds
+			if now.Sub(p.stateTimeStamp) > _peerTTL*time.Second {
+				// cleanup dead peer after ttl
 				if err := p.dataStore.CleanupPeer(p.peerId); err != nil {
 					_peerLogger.Errorf("CleanupPeer [%d] failed: %s", p.peerId, err)
 				} else {
