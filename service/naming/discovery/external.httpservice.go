@@ -61,7 +61,7 @@ type ServiceInfo struct {
 func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager) {
 	localPeerService := NewLocalPeerService(ds)
 	localNodeService := NewLocalNodeService(ds)
-	manager.SetFinalizer(localNodeService.Offline)
+	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
 	engine.GET("/peer/full", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		set, err := localPeerService.FullFetch()

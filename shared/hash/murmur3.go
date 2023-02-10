@@ -1,21 +1,19 @@
 package hash
 
-// rotate x left by r bits
 func rotl32(x uint32, r uint8) uint32 {
 	return (x << r) | (x >> (32 - r))
 }
 
 type Murmur3 struct {
-	h1     uint32  // our hash state
-	length uint32  // current bytes written so far (needed for finalize)
-	t      [4]byte // as-yet-unprocessed bytes
-	rem    int     // how many bytes in t[] are valid
+	h1     uint32
+	length uint32
+	t      [4]byte
+	rem    int
 }
 
 const c1 = uint32(0xcc9e2d51)
 const c2 = uint32(0x1b873593)
 
-// computes new hash state h1 merged with bytes in k1
 func (m *Murmur3) update(k1 uint32) {
 	k1 *= c1
 	k1 = rotl32(k1, 15)

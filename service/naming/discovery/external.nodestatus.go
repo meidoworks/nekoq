@@ -1,11 +1,11 @@
 package discovery
 
 import (
-	"github.com/meidoworks/nekoq/shared/hash"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/meidoworks/nekoq/shared/hash"
 	"github.com/meidoworks/nekoq/shared/priorityqueue"
 	"github.com/meidoworks/nekoq/shared/workgroup"
 
@@ -26,10 +26,10 @@ type TimeoutEntry struct {
 	Deleted    bool
 }
 
-type RecordFinalizer func(recordKey *RecordKey) error
+type BatchRecordFinalizer func(recordKeys []*RecordKey) error
 
 type NodeStatusManager struct {
-	recordFinalizer RecordFinalizer
+	batchRecordFinalizer BatchRecordFinalizer
 
 	nWorker       uint32
 	nRandGen      []*rand.Rand
@@ -38,8 +38,8 @@ type NodeStatusManager struct {
 	nTimeoutLock  []*sync.Mutex
 }
 
-func (n *NodeStatusManager) SetFinalizer(f RecordFinalizer) {
-	n.recordFinalizer = f
+func (n *NodeStatusManager) SetBatchFinalizer(f BatchRecordFinalizer) {
+	n.batchRecordFinalizer = f
 }
 
 func (n *NodeStatusManager) newExpireTime(idx int) time.Time {
@@ -95,7 +95,7 @@ func (n *NodeStatusManager) Offline(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		if err := n.recordFinalizer(recordKey); err != nil {
+		if err := n.batchRecordFinalizer([]*RecordKey{recordKey}); err != nil {
 			return err
 		}
 		delete(n.nTimeoutMap[idx], key)
@@ -127,32 +127,33 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 		_nodeStatusLogger.Infof("node status checker[%d] - empty", idx)
 		return
 	}
-	count := 0
+	var pendingCleanRecordKeys = make([]*RecordKey, 0, 32)
 	for !n.nTimeoutQueue[idx].IsEmpty() {
 		entry := n.nTimeoutQueue[idx].Peak()
 		if startTime.Sub(entry.ExpireTime) > threshold {
 			// timeout
-			if err := n.recordFinalizer(entry.RecordKey); err != nil {
-				_nodeStatusLogger.Errorf("service finalize error: %s", err)
-				continue
-			}
+			pendingCleanRecordKeys = append(pendingCleanRecordKeys, entry.RecordKey)
 			delete(n.nTimeoutMap[idx], entry.RecordKey.GetKey())
 			n.nTimeoutQueue[idx].Pop()
-			count++
 		} else if entry.Deleted {
 			// delete
-			if err := n.recordFinalizer(entry.RecordKey); err != nil {
-				_nodeStatusLogger.Errorf("service finalize error: %s", err)
-				continue
-			}
+			pendingCleanRecordKeys = append(pendingCleanRecordKeys, entry.RecordKey)
 			delete(n.nTimeoutMap[idx], entry.RecordKey.GetKey())
 			n.nTimeoutQueue[idx].Pop()
-			count++
 		} else {
 			break
 		}
 	}
-	_nodeStatusLogger.Infof("node status checker[%d] - removed records:[%d], rest records:[%d], time: [%d]ms", idx, count, n.nTimeoutQueue[idx].Size(), time.Now().UnixMilli()-startTime.UnixMilli())
+
+	if len(pendingCleanRecordKeys) > 0 {
+		if err := n.batchRecordFinalizer(pendingCleanRecordKeys); err != nil {
+			_nodeStatusLogger.Errorf("batch finalier in node status manager shoudl not error but occurs: %s", err)
+		} else {
+			_nodeStatusLogger.Infof("batch clean success[%d]", idx)
+		}
+	}
+
+	_nodeStatusLogger.Infof("node status checker[%d] - removed records:[%d], rest records:[%d], time: [%d]ms", idx, len(pendingCleanRecordKeys), n.nTimeoutQueue[idx].Size(), time.Now().UnixMilli()-startTime.UnixMilli())
 }
 
 func NewNodeStatusManager() *NodeStatusManager {
