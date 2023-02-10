@@ -73,6 +73,7 @@ type NodeService interface {
 	SelfKeepAlive(record *Record) error
 	SlimKeepAlive(key *RecordKey) error
 	Offline(key *RecordKey) error
+	OfflineN(keys []*RecordKey) error
 	ControlData(data *ControlData) error //TODO WIP
 
 	CustomInformation(info *CustomInfo) error //TODO WIP

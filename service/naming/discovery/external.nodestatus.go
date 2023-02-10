@@ -1,9 +1,11 @@
 package discovery
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/meidoworks/nekoq/shared/priorityqueue"
 	"github.com/meidoworks/nekoq/shared/workgroup"
 
 	"github.com/sirupsen/logrus"
@@ -12,13 +14,15 @@ import (
 const (
 	_keepAliveLoopInterview = 5
 	_serviceTTL             = 20
+	_serviceTTLRandomInc    = 10
 )
 
 var _nodeStatusLogger = logrus.New()
 
 type TimeoutEntry struct {
 	*RecordKey
-	LatestTime time.Time
+	ExpireTime time.Time
+	Deleted    bool
 
 	next *TimeoutEntry
 	prev *TimeoutEntry
@@ -29,13 +33,20 @@ type RecordFinalizer func(recordKey *RecordKey) error
 type NodeStatusManager struct {
 	recordFinalizer RecordFinalizer
 
+	randGen *rand.Rand
+
 	timeoutMap       map[string]*TimeoutEntry
 	timeoutEntryHead *TimeoutEntry
+	timeoutQueue     *priorityqueue.PriorityQueue[*TimeoutEntry]
 	timeoutLock      sync.Mutex
 }
 
 func (n *NodeStatusManager) SetFinalizer(f RecordFinalizer) {
 	n.recordFinalizer = f
+}
+
+func (n *NodeStatusManager) newExpireTime() time.Time {
+	return time.Now().Add(time.Duration(n.randGen.Intn(_serviceTTLRandomInc)) * time.Second)
 }
 
 func (n *NodeStatusManager) StartNode(recordKey *RecordKey) error {
@@ -44,20 +55,17 @@ func (n *NodeStatusManager) StartNode(recordKey *RecordKey) error {
 
 	en, ok := n.timeoutMap[recordKey.GetKey()]
 	if ok {
-		en.LatestTime = time.Now()
+		en.ExpireTime = n.newExpireTime()
 		return nil
 	}
 
 	newEntry := &TimeoutEntry{
 		RecordKey:  recordKey,
-		LatestTime: time.Now(),
+		ExpireTime: n.newExpireTime(),
 		next:       n.timeoutEntryHead.next,
 		prev:       n.timeoutEntryHead,
 	}
-	if newEntry.next != nil {
-		newEntry.next.prev = newEntry
-	}
-	n.timeoutEntryHead.next = newEntry
+	n.timeoutQueue.Push(newEntry, int(newEntry.ExpireTime.UnixMilli()))
 	n.timeoutMap[recordKey.GetKey()] = newEntry
 
 	return nil
@@ -69,7 +77,7 @@ func (n *NodeStatusManager) KeepAlive(recordKey *RecordKey) error {
 
 	en, ok := n.timeoutMap[recordKey.GetKey()]
 	if ok {
-		en.LatestTime = time.Now()
+		en.ExpireTime = n.newExpireTime()
 		return nil
 	} else {
 		return nil
@@ -86,10 +94,7 @@ func (n *NodeStatusManager) Offline(recordKey *RecordKey) error {
 			return err
 		}
 		delete(n.timeoutMap, recordKey.GetKey())
-		en.prev.next = en.next
-		if en.next != nil {
-			en.next.prev = en.prev
-		}
+		en.Deleted = true
 	}
 
 	return nil
@@ -110,28 +115,45 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 	n.timeoutLock.Lock()
 	defer n.timeoutLock.Unlock()
 
+	startTime := time.Now()
+	if n.timeoutQueue.IsEmpty() {
+		_nodeStatusLogger.Infof("node status checker - empty")
+		return
+	}
 	count := 0
-	for entry := n.timeoutEntryHead.next; entry != nil; entry = entry.next {
-		count++
-		if now.Sub(entry.LatestTime) > threshold {
+	for !n.timeoutQueue.IsEmpty() {
+		entry := n.timeoutQueue.Peak()
+		if startTime.Sub(entry.ExpireTime) > threshold {
+			// timeout
 			if err := n.recordFinalizer(entry.RecordKey); err != nil {
 				_nodeStatusLogger.Errorf("service finalize error: %s", err)
 				continue
 			}
 			delete(n.timeoutMap, entry.RecordKey.GetKey())
-			entry.prev.next = entry.next
-			if entry.next != nil {
-				entry.next.prev = entry.prev
+			n.timeoutQueue.Pop()
+			count++
+		} else if entry.Deleted {
+			// delete
+			if err := n.recordFinalizer(entry.RecordKey); err != nil {
+				_nodeStatusLogger.Errorf("service finalize error: %s", err)
+				continue
 			}
+			delete(n.timeoutMap, entry.RecordKey.GetKey())
+			n.timeoutQueue.Pop()
+			count++
+		} else {
+			break
 		}
 	}
-	_nodeStatusLogger.Infof("node status checker - scaned record: [%d], time: [%d]ms", count, time.Now().UnixMilli()-now.UnixMilli())
+	_nodeStatusLogger.Infof("node status checker - removed records:[%d], rest records:[%d], time: [%d]ms", count, n.timeoutQueue.Size(), time.Now().UnixMilli()-startTime.UnixMilli())
 }
 
 func NewNodeStatusManager() *NodeStatusManager {
 	mgr := new(NodeStatusManager)
 	mgr.timeoutMap = map[string]*TimeoutEntry{}
 	mgr.timeoutEntryHead = new(TimeoutEntry)
+	mgr.randGen = rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
+	mgr.timeoutQueue = priorityqueue.NewMinPriorityQueue[*TimeoutEntry]()
 
 	workgroup.WithFailOver().Run(mgr.KeepAliveLoop)
 

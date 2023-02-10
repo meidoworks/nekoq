@@ -4,8 +4,13 @@ type LocalNodeService struct {
 	DataStore *DataStore
 }
 
+func (l *LocalNodeService) OfflineN(keys []*RecordKey) error {
+	l.DataStore.OfflineNRecords(keys)
+	return nil
+}
+
 func (l *LocalNodeService) SelfKeepAlive(record *Record) error {
-	l.DataStore.KeepAliveRecord(record)
+	l.DataStore.PersistRecord(record)
 	return nil
 }
 

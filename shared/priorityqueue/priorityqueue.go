@@ -35,6 +35,10 @@ func (p *PriorityQueue[T]) IsEmpty() bool {
 	return p.priorityQueue.Len() == 0
 }
 
+func (p *PriorityQueue[T]) Size() int {
+	return p.priorityQueue.Len()
+}
+
 type Item[T any] struct {
 	value    T
 	priority int

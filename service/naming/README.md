@@ -78,7 +78,7 @@ This will cause overhead of computing and synchronization. So this behaviour is 
 * Service keepalive: suggested >5s and < Time of ServiceTTL
 * (Optional)Service re-register: > several minutes
 * Service check interval: 5s
-* Service TTL before cleanup: 20s
+* Service TTL before cleanup: 20s + 0~10s
 * Peer Sync TTL before expired: 20s
 * Peer TTL before cleanup: 60s
 * Peer fetching update: 1s

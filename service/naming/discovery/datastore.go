@@ -151,42 +151,45 @@ func (d *DataStore) regenerateMerged() {
 	d.MergedData.Data = newMap
 }
 
-func (d *DataStore) OfflineRecord(key *RecordKey) {
+func (d *DataStore) OfflineNRecords(keys []*RecordKey) {
 	d.Lock()
 	defer d.Unlock()
 
 	changed := false
-	// remove from data
-	if areaMap, ok := d.LocalData.Data[key.Service]; ok {
-		if srvList, ok := areaMap[key.Area]; ok {
-			found := false
-			var idx int
-			for i, v := range srvList {
-				if v.NodeId == key.NodeId {
-					found = true
-					idx = i
+	for _, key := range keys {
+		// remove from data
+		if areaMap, ok := d.LocalData.Data[key.Service]; ok {
+			if srvList, ok := areaMap[key.Area]; ok {
+				found := false
+				var idx int
+				for i, v := range srvList {
+					if v.NodeId == key.NodeId {
+						found = true
+						idx = i
+						break
+					}
 				}
-			}
-			if found {
-				changed = true
-				var newList = make([]*Record, len(srvList)-1)
-				copy(newList[0:idx], srvList[0:idx])
-				copy(newList[idx:], srvList[idx+1:])
-				areaMap[key.Area] = newList
-				// inc version
-				atomic.AddInt64(&d.LocalData.Version, 1)
-				// update history only after service existing
-				r := &Record{
-					Service: key.Service,
-					Area:    key.Area,
-					NodeId:  key.NodeId,
+				if found {
+					changed = true
+					var newList = make([]*Record, len(srvList)-1)
+					copy(newList[0:idx], srvList[0:idx])
+					copy(newList[idx:], srvList[idx+1:])
+					areaMap[key.Area] = newList
+					// inc version
+					atomic.AddInt64(&d.LocalData.Version, 1)
+					// update history only after service existing
+					r := &Record{
+						Service: key.Service,
+						Area:    key.Area,
+						NodeId:  key.NodeId,
+					}
+					var slot = []*IncrementalRecord{{
+						Record:    *r,
+						Operation: IncrementalOperationRemove,
+					}}
+					offset := d.LocalData.Version % d.LocalData.SizeOfHistory
+					d.LocalData.ChangeLog[offset] = slot
 				}
-				var slot = []*IncrementalRecord{{
-					Record:    *r,
-					Operation: IncrementalOperationRemove,
-				}}
-				offset := d.LocalData.Version % d.LocalData.SizeOfHistory
-				d.LocalData.ChangeLog[offset] = slot
 			}
 		}
 	}
@@ -196,7 +199,12 @@ func (d *DataStore) OfflineRecord(key *RecordKey) {
 	}
 }
 
-func (d *DataStore) KeepAliveRecord(record *Record) {
+func (d *DataStore) OfflineRecord(key *RecordKey) {
+	records := []*RecordKey{key}
+	d.OfflineNRecords(records)
+}
+
+func (d *DataStore) PersistRecord(record *Record) {
 	d.Lock()
 	defer d.Unlock()
 
