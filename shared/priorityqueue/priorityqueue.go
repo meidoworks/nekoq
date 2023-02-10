@@ -12,7 +12,7 @@ type PriorityQueue[T any] struct {
 
 func WithPreallocateSize[T any](n int) Option[T] {
 	return func(queue *PriorityQueue[T]) {
-		queue.priorityQueue = make(priorityQueue[T], n)
+		queue.priorityQueue = make(priorityQueue[T], 0, n)
 	}
 }
 
