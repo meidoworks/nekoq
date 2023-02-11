@@ -25,21 +25,34 @@ func NewMinPriorityQueue[T any](options ...Option[T]) *PriorityQueue[T] {
 	return p
 }
 
-func (p *PriorityQueue[T]) Push(value T, priority int) {
+func (p *PriorityQueue[T]) PushItem(item *Item[T]) {
+	heap.Push(&p.priorityQueue, item)
+}
+
+func NewItem[T any](value T, priority int) *Item[T] {
 	item := &Item[T]{
 		value:    value,
 		priority: priority,
 	}
-	heap.Push(&p.priorityQueue, item)
+	return item
 }
 
-func (p *PriorityQueue[T]) Pop() T {
+func (p *PriorityQueue[T]) Push(value T, priority int) *Item[T] {
+	item := &Item[T]{
+		value:    value,
+		priority: priority,
+	}
+	p.PushItem(item)
+	return item
+}
+
+func (p *PriorityQueue[T]) Pop() *Item[T] {
 	item := heap.Pop(&p.priorityQueue).(*Item[T])
-	return item.value
+	return item
 }
 
-func (p *PriorityQueue[T]) Peak() T {
-	return p.priorityQueue[0].value
+func (p *PriorityQueue[T]) Peak() *Item[T] {
+	return p.priorityQueue[0]
 }
 
 func (p *PriorityQueue[T]) IsEmpty() bool {
@@ -50,11 +63,23 @@ func (p *PriorityQueue[T]) Size() int {
 	return p.priorityQueue.Len()
 }
 
+func (p *PriorityQueue[T]) UpdatePriority(item *Item[T], priority int) {
+	p.priorityQueue.update(item, item.value, priority)
+}
+
 type Item[T any] struct {
 	value    T
 	priority int
 
 	index int
+}
+
+func (i *Item[T]) Value() T {
+	return i.value
+}
+
+func (i *Item[T]) Index() int {
+	return i.index
 }
 
 type priorityQueue[T any] []*Item[T]

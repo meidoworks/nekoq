@@ -25,9 +25,8 @@ var _nodeStatusLogger = logrus.New()
 
 type TimeoutEntry struct {
 	*RecordKey
-	ExpireTime     time.Time
-	Deleted        bool
-	NextExpireTime time.Time
+	ExpireTime time.Time
+	Deleted    bool
 }
 
 type BatchRecordFinalizer func(recordKeys []*RecordKey) error
@@ -37,7 +36,7 @@ type NodeStatusManager struct {
 
 	nWorker       uint32
 	nRandGen      []*rand.Rand
-	nTimeoutMap   []map[string]*TimeoutEntry
+	nTimeoutMap   []map[string]*priorityqueue.Item[*TimeoutEntry]
 	nTimeoutQueue []*priorityqueue.PriorityQueue[*TimeoutEntry]
 	nTimeoutLock  []*sync.Mutex
 }
@@ -62,18 +61,19 @@ func (n *NodeStatusManager) StartNode(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		en.NextExpireTime = n.newExpireTime(idx)
+		t := n.newExpireTime(idx)
+		en.Value().ExpireTime = t
+		n.nTimeoutQueue[idx].UpdatePriority(en, int(t.UnixMilli()))
 		return nil
 	}
 
 	expireTime := n.newExpireTime(idx)
 	newEntry := &TimeoutEntry{
-		RecordKey:      recordKey,
-		ExpireTime:     expireTime,
-		NextExpireTime: expireTime,
+		RecordKey:  recordKey,
+		ExpireTime: expireTime,
 	}
-	n.nTimeoutQueue[idx].Push(newEntry, int(newEntry.ExpireTime.UnixMilli()))
-	n.nTimeoutMap[idx][key] = newEntry
+	item := n.nTimeoutQueue[idx].Push(newEntry, int(expireTime.UnixMilli()))
+	n.nTimeoutMap[idx][key] = item
 
 	return nil
 }
@@ -86,7 +86,9 @@ func (n *NodeStatusManager) KeepAlive(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		en.NextExpireTime = n.newExpireTime(idx)
+		t := n.newExpireTime(idx)
+		en.Value().ExpireTime = t
+		n.nTimeoutQueue[idx].UpdatePriority(en, int(t.UnixMilli()))
 		return nil
 	} else {
 		return nil
@@ -105,7 +107,7 @@ func (n *NodeStatusManager) Offline(recordKey *RecordKey) error {
 			return err
 		}
 		delete(n.nTimeoutMap[idx], key)
-		en.Deleted = true
+		en.Value().Deleted = true
 	}
 
 	return nil
@@ -141,19 +143,10 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 			break
 		}
 
-		entry := n.nTimeoutQueue[idx].Peak()
+		pqItem := n.nTimeoutQueue[idx].Peak()
+		entry := pqItem.Value()
 		if startTime.Sub(entry.ExpireTime) > threshold {
 			// timeout
-			if entry.NextExpireTime.After(entry.ExpireTime) &&
-				startTime.Sub(entry.NextExpireTime) < threshold {
-				// check if still keepalive, requeue and wait for next schedule
-				// rule: 1. nextExpireTime > expireTime
-				//       2. startTime - NextExpireTime < threshold
-				newEntry := n.nTimeoutQueue[idx].Pop()
-				newEntry.ExpireTime = newEntry.NextExpireTime
-				n.nTimeoutQueue[idx].Push(newEntry, int(newEntry.ExpireTime.UnixMilli()))
-				continue
-			}
 			pendingCleanRecordKeys = append(pendingCleanRecordKeys, entry.RecordKey)
 			delete(n.nTimeoutMap[idx], entry.RecordKey.GetKey())
 			n.nTimeoutQueue[idx].Pop()
@@ -184,7 +177,7 @@ func NewNodeStatusManager() *NodeStatusManager {
 	var i uint32 = 0
 	for ; i < mgr.nWorker; i++ {
 		mgr.nRandGen = append(mgr.nRandGen, rand.New(rand.NewSource(int64(time.Now().Nanosecond()))))
-		mgr.nTimeoutMap = append(mgr.nTimeoutMap, map[string]*TimeoutEntry{})
+		mgr.nTimeoutMap = append(mgr.nTimeoutMap, map[string]*priorityqueue.Item[*TimeoutEntry]{})
 		mgr.nTimeoutQueue = append(mgr.nTimeoutQueue, priorityqueue.NewMinPriorityQueue[*TimeoutEntry](
 			priorityqueue.WithPreallocateSize[*TimeoutEntry](8*65536),
 		))
