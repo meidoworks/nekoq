@@ -13,19 +13,21 @@ import (
 )
 
 const (
-	_keepAliveLoopInterview = 5
+	_keepAliveLoopInterview = 2
 	_serviceTTL             = 20
 	_serviceTTLRandomInc    = 10
 
-	_nKeepAliveWorker = 4
+	_nKeepAliveWorker             = 4
+	_nKeepAliveWorkerCleanupLimit = 100000
 )
 
 var _nodeStatusLogger = logrus.New()
 
 type TimeoutEntry struct {
 	*RecordKey
-	ExpireTime time.Time
-	Deleted    bool
+	ExpireTime     time.Time
+	Deleted        bool
+	NextExpireTime time.Time
 }
 
 type BatchRecordFinalizer func(recordKeys []*RecordKey) error
@@ -60,13 +62,15 @@ func (n *NodeStatusManager) StartNode(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		en.ExpireTime = n.newExpireTime(idx)
+		en.NextExpireTime = n.newExpireTime(idx)
 		return nil
 	}
 
+	expireTime := n.newExpireTime(idx)
 	newEntry := &TimeoutEntry{
-		RecordKey:  recordKey,
-		ExpireTime: n.newExpireTime(idx),
+		RecordKey:      recordKey,
+		ExpireTime:     expireTime,
+		NextExpireTime: expireTime,
 	}
 	n.nTimeoutQueue[idx].Push(newEntry, int(newEntry.ExpireTime.UnixMilli()))
 	n.nTimeoutMap[idx][key] = newEntry
@@ -82,7 +86,7 @@ func (n *NodeStatusManager) KeepAlive(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		en.ExpireTime = n.newExpireTime(idx)
+		en.NextExpireTime = n.newExpireTime(idx)
 		return nil
 	} else {
 		return nil
@@ -131,9 +135,25 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 	}
 	var pendingCleanRecordKeys = make([]*RecordKey, 0, 32)
 	for !n.nTimeoutQueue[idx].IsEmpty() {
+		// limit one time cleanup
+		if len(pendingCleanRecordKeys) > _nKeepAliveWorkerCleanupLimit {
+			_nodeStatusLogger.Infof("node status checker[%d] - cleanup records exceeded. waiting for next schedule. ", idx)
+			break
+		}
+
 		entry := n.nTimeoutQueue[idx].Peak()
 		if startTime.Sub(entry.ExpireTime) > threshold {
 			// timeout
+			if entry.NextExpireTime.After(entry.ExpireTime) &&
+				startTime.Sub(entry.NextExpireTime) < threshold {
+				// check if still keepalive, requeue and wait for next schedule
+				// rule: 1. nextExpireTime > expireTime
+				//       2. startTime - NextExpireTime < threshold
+				newEntry := n.nTimeoutQueue[idx].Pop()
+				newEntry.ExpireTime = newEntry.NextExpireTime
+				n.nTimeoutQueue[idx].Push(newEntry, int(newEntry.ExpireTime.UnixMilli()))
+				continue
+			}
 			pendingCleanRecordKeys = append(pendingCleanRecordKeys, entry.RecordKey)
 			delete(n.nTimeoutMap[idx], entry.RecordKey.GetKey())
 			n.nTimeoutQueue[idx].Pop()

@@ -19,18 +19,23 @@ Naming service consists of the following functions
 
 ## 2. Features
 
-* [X] Discovery service
-* [X] Discovery: peer full/incremental sync
-* [X] Discovery: client state report/lifecycle management
-* [X] Discovery: support multiple register from single client
-* [ ] Discovery: Polling(watch) Operation and API
-* [ ] Discovery: gracefully shutdown
-* [ ] Discovery: Custom information over a service
-* [ ] Discovery: revision(version) support for service(not recommended) and custom information update
-* [ ] Discovery optimization: merge update into batch to save history slot
-* [ ] Discovery optimization: Streaming API for large data sync
-* [ ] Discovery optimization: Reduce calculation and network transport(especially for fan-out scenario)
-* [ ] Discovery security: authentication
+* [X] discovery service
+* [X] discovery: peer full/incremental sync
+* [X] discovery: client state report/lifecycle management
+* [X] discovery: support multiple register from single client
+* [ ] discovery: Polling(watch) Operation and API
+* [ ] discovery: gracefully shutdown
+* [ ] discovery: Custom information overwriting a service
+* [ ] discovery: revision(version) support for service(not recommended) and custom information update
+* [ ] discovery: hierarchy discovery support
+* [ ] discovery: environment support & environment inherit
+* [ ] discovery: service tagging/grouping - e.g. active/standby, canary/grey/blue-green release
+* [ ] discovery: manual service management - e.g. downgrade/priority
+* [ ] discovery: multiple tenant
+* [ ] discovery optimization: merge update into batch to save history slot
+* [ ] discovery optimization: Streaming API for large data sync
+* [ ] discovery optimization: Reduce calculation and network transport(especially for fan-out scenario)
+* [ ] discovery security: authentication
 
 ## 3. Document: discovery
 
@@ -39,9 +44,10 @@ Naming service consists of the following functions
 Unique service are recognized by the combination of the following:
 
 * Service
-  * Service here can be the following types:
-    * Traditional service name like full JAVA class name
-    * Or the name of service in kubernetes
+    * Service here can be the following types:
+        * Traditional service name like full JAVA class name
+        * Or the name of service in kubernetes
+        * Details: refer to the document of discovery below
 * Area
 * NodeId
 
@@ -79,13 +85,35 @@ This will cause overhead of computing and synchronization. So this behaviour is 
 
 * Service keepalive: suggested >5s and < Time of ServiceTTL
 * (Optional)Service re-register: > several minutes
-* Service check interval: 5s
+* Service check interval: 2s
 * Service TTL before cleanup: 20s + 0~10s
 * Peer Sync TTL before expired: 20s
 * Peer TTL before cleanup: 60s
 * Peer fetching update: 1s
 
-#### 3.A Alternative implementation
+#### 3.5 Service discovery hierarchy in data center model and other service models
+
+Hierarchies for service communications:
+
+* Direct
+    * Can talk to peer directly.
+    * In the `same` tier(network/naming scope).
+* Proxy/Gateway
+    * Regardless of whether peer can talk to each other or not, one node should talk to the proxy to access peer.
+    * Examples reverse proxy(nginx/etc.), kubernetes service, network zoning(firewall isolated/etc.), etc.
+    * Can be treated as direct/inside subnet.
+* Inside subnet - e.g. NAT/L4-L7 Translation
+    * Node outside the subnet cannot access peers inside subnet.
+    * Access should be via a translation/gateway mechanism.
+    * Both or the inside service have to be exposed using the mechanism. So that the other side could access.
+    * Subnet can have multiple layers.
+    * In `multiper` tiers.
+    * And is in the `tree` model.
+
+For the case of using private network between multiple sites, it is the network architecture. It doesn't change any
+assumption to the above.
+
+#### 3.A Alternative implementations
 
 * Performance: using client side register & keepalive to replicate to peers
     * This approach will reduce the cost of recording change history on the source server
@@ -93,3 +121,39 @@ This will cause overhead of computing and synchronization. So this behaviour is 
       consumption.
     * Discovery currently keeps history inside the server and replicate the data only when someone ask for updates.
       This will reduce the cost of bandwidth but have to think about the amount of history to track.
+
+* Ready to accept requests
+    * Since discovery relies on peer talk to reach cluster consistent which is not strict consistency, it may have data
+      issue to start serving before getting data from all peers.
+    * One solution is waiting for all peers to respond data then start processing client request.
+    * There are some other features have to be considered:
+        * One discovery server may start before peers and may also keep this state for a long time. So this should allow
+          incoming request.
+        * Discovery server may shut down for maintenance(even majority of the nodes do). In this case, other servers
+          should work as normal.
+        * Discovery supports asymmetric peer. Peer list is maintained per discovery server not the whole cluster.
+    * So to avoid data out-of-sync issue, when a new discovery service online, it's better to make sure peer status is
+      healthy, then dispatch client requests to this server.
+
+* Service field used for service definition
+    * 3 types of service scope
+        * Per application node
+        * Per service
+        * Hybrid
+    * Per service
+        * Traditional service discovery
+        * Fine-grained
+        * MetaData can be attached per node per service
+        * Cons: resource consumption - computing/memory/bandwidth
+    * Per application node
+        * Like domain based service discovery
+        * Resource friendly
+        * Cons: require all node associated with the service name should provide same service implementations
+            * Possible solution: directly retrieve peer metadata before invoking service
+        * Cons: metadata only supports per node
+            * Possible solution: same to the above
+        * Otherwise, request may fail if running on the node, which not supporting the request.
+    * Hybrid
+        * Combining the solutions of per service and per application node
+        * Providing fine-grained service discovery and reduce the cost of resources
+
