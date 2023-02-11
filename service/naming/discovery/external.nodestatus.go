@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/meidoworks/nekoq/shared/hash"
+	"github.com/meidoworks/nekoq/shared/logging"
 	"github.com/meidoworks/nekoq/shared/priorityqueue"
 	"github.com/meidoworks/nekoq/shared/workgroup"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -21,7 +20,7 @@ const (
 	_nKeepAliveWorkerCleanupLimit = 100000
 )
 
-var _nodeStatusLogger = logrus.New()
+var _nodeStatusLogger = logging.NewLogger("NodeStatus")
 
 type TimeoutEntry struct {
 	*RecordKey

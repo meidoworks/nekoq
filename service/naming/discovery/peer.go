@@ -3,10 +3,10 @@ package discovery
 import (
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/meidoworks/nekoq/shared/logging"
 )
 
-var _peerLogger = logrus.New()
+var _peerLogger = logging.NewLogger("Peer")
 
 const (
 	_peerScheduleLoopInterview = 1

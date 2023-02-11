@@ -1,8 +1,10 @@
 package workgroup
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/meidoworks/nekoq/shared/logging"
+)
 
-var _workgroupLogger = logrus.New()
+var _workgroupLogger = logging.NewLogger("workgroup")
 
 type workGroup interface {
 	Run(f func() bool)
