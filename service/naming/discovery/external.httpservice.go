@@ -63,14 +63,14 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 	localNodeService := NewLocalNodeService(ds)
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
-	engine.GET("/peer/full", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+	peerFull := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		set, err := localPeerService.FullFetch()
 		if err != nil {
 			return ginshared.RenderError(err)
 		}
 		return ginshared.RenderJson(http.StatusOK, set)
-	}))
-	engine.GET("/peer/incremental/:version", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+	})
+	peerIncremental := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		version := ctx.Param("version")
 		if len(version) <= 0 {
 			return ginshared.RenderString(http.StatusBadRequest, "version is empty")
@@ -80,14 +80,22 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 			return ginshared.RenderError(err)
 		}
 		return ginshared.RenderJson(http.StatusOK, incSet)
-	}))
-
-	engine.PUT("/node/:node_id/:service/:area", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+	})
+	serviceAdd := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		nodeId := ctx.Param("node_id")
 		service := ctx.Param("service")
 		area := ctx.Param("area")
 		if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
 			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
+		}
+		if !validateServiceName(service) {
+			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
+		}
+		if !validateAreaName(area) {
+			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
+		}
+		if !validateNodeId(nodeId) {
+			return ginshared.RenderString(http.StatusBadRequest, "node id invalid")
 		}
 
 		serviceInfo := new(ServiceInfo)
@@ -121,13 +129,22 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 		}
 
 		return ginshared.RenderStatus(http.StatusOK)
-	}))
-	engine.HEAD("/node/:node_id/:service/:area", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+	})
+	serviceKeepAlive := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		nodeId := ctx.Param("node_id")
 		service := ctx.Param("service")
 		area := ctx.Param("area")
 		if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
 			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
+		}
+		if !validateServiceName(service) {
+			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
+		}
+		if !validateAreaName(area) {
+			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
+		}
+		if !validateNodeId(nodeId) {
+			return ginshared.RenderString(http.StatusBadRequest, "node id invalid")
 		}
 
 		recordKey := &RecordKey{
@@ -140,13 +157,22 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 		}
 
 		return ginshared.RenderStatus(http.StatusOK)
-	}))
-	engine.DELETE("/node/:node_id/:service/:area", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+	})
+	serviceRemove := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		nodeId := ctx.Param("node_id")
 		service := ctx.Param("service")
 		area := ctx.Param("area")
 		if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
 			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
+		}
+		if !validateServiceName(service) {
+			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
+		}
+		if !validateAreaName(area) {
+			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
+		}
+		if !validateNodeId(nodeId) {
+			return ginshared.RenderString(http.StatusBadRequest, "node id invalid")
 		}
 
 		recordKey := &RecordKey{
@@ -159,13 +185,18 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 		}
 
 		return ginshared.RenderStatus(http.StatusOK)
-	}))
-
-	engine.GET("/service/:service/:area", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+	})
+	queryService := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		service := ctx.Param("service")
 		area := ctx.Param("area")
 		if len(service) <= 0 || len(area) <= 0 {
 			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
+		}
+		if !validateServiceName(service) {
+			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
+		}
+		if !validateAreaName(area) {
+			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
 		}
 
 		rs, err := localNodeService.Fetch(service, area)
@@ -173,5 +204,14 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 			return ginshared.RenderError(err)
 		}
 		return ginshared.RenderJson(http.StatusOK, rs)
-	}))
+	})
+
+	engine.GET("/peer/full", peerFull)
+	engine.GET("/peer/incremental/:version", peerIncremental)
+
+	engine.PUT("/node/:node_id/:service/:area", serviceAdd)
+	engine.HEAD("/node/:node_id/:service/:area", serviceKeepAlive)
+	engine.DELETE("/node/:node_id/:service/:area", serviceRemove)
+
+	engine.GET("/service/:service/:area", queryService)
 }

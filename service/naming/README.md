@@ -21,7 +21,7 @@ Naming service consists of the following functions
 
 * [X] Discovery service
 * [X] Discovery: peer full/incremental sync
-* [X] Discovery: client state report
+* [X] Discovery: client state report/lifecycle management
 * [X] Discovery: support multiple register from single client
 * [ ] Discovery: Polling(watch) Operation and API
 * [ ] Discovery: gracefully shutdown
@@ -39,6 +39,9 @@ Naming service consists of the following functions
 Unique service are recognized by the combination of the following:
 
 * Service
+  * Service here can be the following types:
+    * Traditional service name like full JAVA class name
+    * Or the name of service in kubernetes
 * Area
 * NodeId
 
@@ -49,7 +52,6 @@ Service data
 * MetaData: metadata to describe the service record
 
 #### 3.2 Keep Alive model
-
 
 ##### 3.2.1 Grain of registered service
 
@@ -82,3 +84,12 @@ This will cause overhead of computing and synchronization. So this behaviour is 
 * Peer Sync TTL before expired: 20s
 * Peer TTL before cleanup: 60s
 * Peer fetching update: 1s
+
+#### 3.A Alternative implementation
+
+* Performance: using client side register & keepalive to replicate to peers
+    * This approach will reduce the cost of recording change history on the source server
+    * Syncing data in keepalive aims to replicate data to newly joint server. But this will cause high bandwidth
+      consumption.
+    * Discovery currently keeps history inside the server and replicate the data only when someone ask for updates.
+      This will reduce the cost of bandwidth but have to think about the amount of history to track.
