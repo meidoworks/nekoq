@@ -102,8 +102,8 @@ func (d *DataStore) UpdatePeer(peerId int16, incSet *IncrementalSet) error {
 		}
 	}
 	d.PeerData.peerVersionMap[peerId] = incSet.CurrentVersion
-	// 2. regenerate merged data
-	d.regenerateMerged()
+	// 2. incremental merged data
+	d.incrementalMerged(incSet.Records)
 
 	return nil
 }
@@ -119,6 +119,40 @@ func (d *DataStore) CleanupPeer(peerId int16) error {
 	d.regenerateMerged()
 
 	return nil
+}
+
+func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
+	var data = d.MergedData.Data
+	for _, record := range entries {
+		areaMap, ok := data[record.Service]
+		if !ok {
+			areaMap = map[string][]*Record{}
+		}
+		records := areaMap[record.Area]
+		offset := -1
+		for idx, v := range records {
+			if v.NodeId == record.NodeId {
+				offset = idx
+				break
+			}
+		}
+		switch record.Operation {
+		case IncrementalOperationChange:
+			if offset != -1 {
+				records[offset] = &record.Record
+			} else {
+				areaMap[record.Area] = append(records, &record.Record)
+			}
+		case IncrementalOperationRemove:
+			if offset != -1 {
+				//FIXME avoid the operation both freq and copy
+				var newList = make([]*Record, len(records)-1)
+				copy(newList[0:offset], records[0:offset])
+				copy(newList[offset:], records[offset+1:])
+				areaMap[record.Area] = newList
+			}
+		}
+	}
 }
 
 func (d *DataStore) regenerateMerged() {
@@ -172,6 +206,7 @@ func (d *DataStore) OfflineNRecords(keys []*RecordKey) {
 				}
 				if found {
 					changed = true
+					//FIXME avoid the operation both freq and copy
 					var newList = make([]*Record, len(srvList)-1)
 					copy(newList[0:idx], srvList[0:idx])
 					copy(newList[idx:], srvList[idx+1:])
@@ -196,8 +231,8 @@ func (d *DataStore) OfflineNRecords(keys []*RecordKey) {
 		// update history
 		offset := d.LocalData.Version % d.LocalData.SizeOfHistory
 		d.LocalData.ChangeLog[offset] = changeLog
-		// regenerate merged data
-		d.regenerateMerged()
+		// incremental merged data
+		d.incrementalMerged(changeLog)
 	}
 }
 
@@ -221,8 +256,8 @@ func (d *DataStore) PersistRecord(record *Record) {
 	d.LocalData.ChangeLog[offset] = slot
 	// update data
 	updateLocalDataMap(record, d.LocalData.Data)
-	// regenerate merged data
-	d.regenerateMerged()
+	// incremental merged data
+	d.incrementalMerged(slot)
 }
 
 func updateLocalDataMap(record *Record, m map[string]map[string][]*Record) {
@@ -253,7 +288,7 @@ func makeServiceKey(record *Record) string {
 	return fmt.Sprint(record.Service, "||", record.Area, "||", record.NodeId)
 }
 
-func (d *DataStore) FetchLocalFull() (*FullSet, error) {
+func (d *DataStore) PeerFetchLocalFull() (*FullSet, error) {
 	d.RLock()
 	defer d.RUnlock()
 
@@ -272,7 +307,7 @@ func (d *DataStore) FetchLocalFull() (*FullSet, error) {
 	return fullSet, nil
 }
 
-func (d *DataStore) FetchLocalIncremental(lastVersion int64) (*IncrementalSet, error) {
+func (d *DataStore) PeerFetchLocalIncremental(lastVersion int64) (*IncrementalSet, error) {
 	d.RLock()
 	defer d.RUnlock()
 

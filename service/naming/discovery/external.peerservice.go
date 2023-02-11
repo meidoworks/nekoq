@@ -7,7 +7,7 @@ type LocalPeerService struct {
 }
 
 func (l *LocalPeerService) FullFetch() (*FullSet, error) {
-	return l.DataStore.FetchLocalFull()
+	return l.DataStore.PeerFetchLocalFull()
 }
 
 func (l *LocalPeerService) IncrementalFetch(lastVersion string) (*IncrementalSet, error) {
@@ -15,7 +15,7 @@ func (l *LocalPeerService) IncrementalFetch(lastVersion string) (*IncrementalSet
 	if err != nil {
 		return nil, err
 	}
-	return l.DataStore.FetchLocalIncremental(versionId)
+	return l.DataStore.PeerFetchLocalIncremental(versionId)
 }
 
 func NewLocalPeerService(dataStore *DataStore) PeerService {

@@ -53,6 +53,8 @@ func (p *PriorityQueue[T]) Size() int {
 type Item[T any] struct {
 	value    T
 	priority int
+
+	index int
 }
 
 type priorityQueue[T any] []*Item[T]
@@ -65,10 +67,13 @@ func (pq priorityQueue[T]) Less(i, j int) bool {
 
 func (pq priorityQueue[T]) Swap(i, j int) {
 	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
 }
 
 func (pq *priorityQueue[T]) Push(x any) {
 	item := x.(*Item[T])
+	item.index = len(*pq)
 	*pq = append(*pq, item)
 }
 
@@ -76,7 +81,14 @@ func (pq *priorityQueue[T]) Pop() any {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
-	old[n-1] = nil // avoid memory leak
+	item.index = -1 // for safety
+	old[n-1] = nil  // avoid memory leak
 	*pq = old[0 : n-1]
 	return item
+}
+
+func (pq *priorityQueue[T]) update(item *Item[T], value T, priority int) {
+	item.value = value
+	item.priority = priority
+	heap.Fix(pq, item.index)
 }

@@ -16,6 +16,8 @@ const (
 	_keepAliveLoopInterview = 5
 	_serviceTTL             = 20
 	_serviceTTLRandomInc    = 10
+
+	_nKeepAliveWorker = 4
 )
 
 var _nodeStatusLogger = logrus.New()
@@ -158,7 +160,7 @@ func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duratio
 
 func NewNodeStatusManager() *NodeStatusManager {
 	mgr := new(NodeStatusManager)
-	mgr.nWorker = 4
+	mgr.nWorker = _nKeepAliveWorker
 	var i uint32 = 0
 	for ; i < mgr.nWorker; i++ {
 		mgr.nRandGen = append(mgr.nRandGen, rand.New(rand.NewSource(int64(time.Now().Nanosecond()))))
