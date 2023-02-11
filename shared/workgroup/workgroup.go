@@ -2,6 +2,7 @@ package workgroup
 
 import (
 	"github.com/meidoworks/nekoq/shared/logging"
+	"runtime/debug"
 )
 
 var _workgroupLogger = logging.NewLogger("workgroup")
@@ -23,7 +24,7 @@ func (f failOverWorkGroup) Run(fn func() bool) {
 				defer func() {
 					err := recover()
 					if err != nil {
-						_workgroupLogger.Errorln("WorkGroup will restart task after reporting panic:", err)
+						_workgroupLogger.Errorf("WMaximum orkGroup will restart task after reporting panic: %s, stack: %s", err, debug.Stack())
 						shutdownChannel <- false
 					}
 				}()
