@@ -17,11 +17,13 @@ var _defaultConfig = &NekoConfig{
 	MQ: MQConfig{},
 	Naming: NamingConfig{
 		Discovery: struct {
-			Listen string `toml:"listen"`
-			Peers  []struct {
+			Disable bool   `json:"disable"`
+			Listen  string `toml:"listen"`
+			Peers   []struct {
 				Address string `toml:"address"`
 				NodeId  int16  `toml:"node_id"`
 			} `toml:"peers"`
+			DisableDefaultArea bool `toml:"disable_default_area"`
 		}{
 			Listen: ":9302",
 		},
@@ -60,11 +62,13 @@ type MQConfig struct {
 
 type NamingConfig struct {
 	Discovery struct {
-		Listen string `toml:"listen"`
-		Peers  []struct {
+		Disable bool   `json:"disable"`
+		Listen  string `toml:"listen"`
+		Peers   []struct {
 			Address string `toml:"address"`
 			NodeId  int16  `toml:"node_id"` // Skip self: if node_id == current node_id, then skip
 		} `toml:"peers"`
+		DisableDefaultArea bool `toml:"disable_default_area"`
 	} `toml:"discovery"`
 }
 
@@ -75,6 +79,7 @@ func (n *NekoConfig) Validate() error {
 	return nil
 }
 
-func (n *NekoConfig) MergeDefault() {
+func (n *NekoConfig) MergeDefault() *NekoConfig {
 	//TODO apply default to current config
+	return _defaultConfig
 }

@@ -78,6 +78,8 @@ type NodeService interface {
 
 	CustomInformation(info *CustomInfo) error //TODO WIP
 
+	// Fetch will fetch the service list by service and area.
+	// Area supports nested environment which means area checks from warehouseapi.DiscoverUse will be performed.
 	Fetch(service, area string) ([]*Record, error)
 }
 

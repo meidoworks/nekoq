@@ -1,6 +1,8 @@
 package inproc
 
-import "github.com/meidoworks/nekoq/shared/idgen"
+import (
+	"github.com/meidoworks/nekoq/shared/idgen"
+)
 
 type NumGenSpawnApi interface {
 	GetNumGen(key string) *idgen.IdGen

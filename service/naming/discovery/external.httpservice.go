@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/meidoworks/nekoq/config"
+	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
 	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +19,7 @@ type ExternalHttpService struct {
 	nodeStatusManager *NodeStatusManager
 }
 
-func NewHttpService(addr string, ds *DataStore) *ExternalHttpService {
+func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService, error) {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(func(context *gin.Context) {
@@ -39,14 +41,20 @@ func NewHttpService(addr string, ds *DataStore) *ExternalHttpService {
 
 	nodeStatusManager := NewNodeStatusManager()
 
-	registerHandler(engine, ds, nodeStatusManager)
+	areaManager := warehouseapi.WarehouseDiscoveryApi(nil)
+	if !cfg.Naming.Discovery.DisableDefaultArea {
+		if err := areaManager.PutArea("default", warehouseapi.RootArea); err != nil {
+			return nil, err
+		}
+	}
+	registerHandler(engine, ds, nodeStatusManager, areaManager)
 
 	return &ExternalHttpService{
 		engine:            engine,
-		addr:              addr,
+		addr:              cfg.Naming.Discovery.Listen,
 		dataStore:         ds,
 		nodeStatusManager: nodeStatusManager,
-	}
+	}, nil
 }
 
 func (e *ExternalHttpService) StartService() error {
@@ -58,9 +66,9 @@ type ServiceInfo struct {
 	Port uint16 `json:"port"`
 }
 
-func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager) {
+func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, areaManager warehouseapi.DiscoveryUse) {
 	localPeerService := NewLocalPeerService(ds)
-	localNodeService := NewLocalNodeService(ds)
+	localNodeService := NewLocalNodeService(ds, areaManager)
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
 	peerFull := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {

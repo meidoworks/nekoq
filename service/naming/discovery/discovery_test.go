@@ -4,19 +4,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
 	"github.com/meidoworks/nekoq/service/naming/discovery"
+	_ "github.com/meidoworks/nekoq/service/naming/warehouse"
 )
 
 func TestInternalApiSlimUsage(t *testing.T) {
+	du := warehouseapi.WarehouseDiscoveryApi(nil)
+	du.PutArea("default", warehouseapi.RootArea)
+
 	ds1 := discovery.NewDataStore()
 	ps1 := discovery.NewLocalPeerService(ds1)
-	ns1 := discovery.NewLocalNodeService(ds1)
+	ns1 := discovery.NewLocalNodeService(ds1, du)
 	ds2 := discovery.NewDataStore()
 	ps2 := discovery.NewLocalPeerService(ds2)
-	ns2 := discovery.NewLocalNodeService(ds2)
+	ns2 := discovery.NewLocalNodeService(ds2, du)
 	ds3 := discovery.NewDataStore()
 	ps3 := discovery.NewLocalPeerService(ds3)
-	ns3 := discovery.NewLocalNodeService(ds3)
+	ns3 := discovery.NewLocalNodeService(ds3, du)
 	s1 := setupService(t, 1, []*discovery.DataStore{ds1, ds2, ds3}, []discovery.PeerService{ps1, ps2, ps3})
 	s2 := setupService(t, 2, []*discovery.DataStore{ds1, ds2, ds3}, []discovery.PeerService{ps1, ps2, ps3})
 	s3 := setupService(t, 3, []*discovery.DataStore{ds1, ds2, ds3}, []discovery.PeerService{ps1, ps2, ps3})
@@ -30,7 +35,7 @@ func TestInternalApiSlimUsage(t *testing.T) {
 
 	if err := ns1.SelfKeepAlive(&discovery.Record{
 		Service:       "demo.service01",
-		Area:          "cn",
+		Area:          "default",
 		NodeId:        "AAA0001",
 		RecordVersion: 0,
 		Tags:          nil,
@@ -42,12 +47,12 @@ func TestInternalApiSlimUsage(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	if r, err := ns2.Fetch("demo.service01", "cn"); err != nil {
+	if r, err := ns2.Fetch("demo.service01", "default"); err != nil {
 		t.Fatal(err)
 	} else if len(r) == 0 {
 		t.Fatal("expect 1 result")
 	}
-	if r, err := ns3.Fetch("demo.service01", "cn"); err != nil {
+	if r, err := ns3.Fetch("demo.service01", "default"); err != nil {
 		t.Fatal(err)
 	} else if len(r) == 0 {
 		t.Fatal("expect 1 result")
@@ -55,7 +60,7 @@ func TestInternalApiSlimUsage(t *testing.T) {
 
 	if err := ns1.Offline(&discovery.RecordKey{
 		Service: "demo.service01",
-		Area:    "cn",
+		Area:    "default",
 		NodeId:  "AAA0001",
 	}); err != nil {
 		t.Fatal(err)
@@ -63,12 +68,12 @@ func TestInternalApiSlimUsage(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	if r, err := ns2.Fetch("demo.service01", "cn"); err != nil {
+	if r, err := ns2.Fetch("demo.service01", "default"); err != nil {
 		t.Fatal(err)
 	} else if len(r) != 0 {
 		t.Fatal("expect 0 result")
 	}
-	if r, err := ns3.Fetch("demo.service01", "cn"); err != nil {
+	if r, err := ns3.Fetch("demo.service01", "default"); err != nil {
 		t.Fatal(err)
 	} else if len(r) != 0 {
 		t.Fatal("expect 0 result")

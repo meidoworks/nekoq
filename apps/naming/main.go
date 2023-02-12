@@ -9,7 +9,9 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 
+	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/naming"
+	_ "github.com/meidoworks/nekoq/service/naming/warehouse"
 )
 
 func main() {
@@ -90,7 +92,7 @@ func main() {
 	}()
 
 	fmt.Println("system proc count:", runtime.GOMAXPROCS(-1))
-	err := naming.SyncStartNaming(":9302")
+	err := naming.SyncStartNaming(new(config.NekoConfig).MergeDefault())
 	if err != nil {
 		panic(err)
 	}

@@ -27,8 +27,10 @@ Naming service consists of the following functions
 * [ ] discovery: gracefully shutdown
 * [ ] discovery: Custom information overwriting a service
 * [ ] discovery: revision(version) support for service(not recommended) and custom information update
-* [ ] discovery: hierarchy discovery support
-* [ ] discovery: environment support & environment inherit
+* [X] discovery: hierarchy discovery support, environment support & environment inherit
+  * For retrieving services, this requires area configuration available in warehouse DiscoveryUse.
+  * For register services, area can be any value even not existing in warehouse DiscoveryUse.
+  * By default, a default area `default` will be created for general purpose.
 * [ ] discovery: service tagging/grouping - e.g. active/standby, canary/grey/blue-green release
 * [ ] discovery: manual service management - e.g. downgrade/priority
 * [ ] discovery: multiple tenant
@@ -157,3 +159,49 @@ assumption to the above.
         * Combining the solutions of per service and per application node
         * Providing fine-grained service discovery and reduce the cost of resources
 
+#### 3.B UseCase
+
+##### 3.B.1 Nested Environment
+
+In some testing environments, user can create isolated environments based on a shared environment.
+
+This allows user to access shared services without deploying them in the separate environment.
+
+The solution using discovery is:
+
+* Create new `area` for the new test env and link to the parent env by parent `area`
+* Register services in the new test env with the new `area`
+* Fetch desired service as normal
+
+##### 3.B.2 Application groups for various purpose
+
+For the purpose of increasing reliability of a large application, usually the application will be split into several
+groups.
+
+When client calling specific api, the traffic will be sent to the specific group which is part of the application that
+provide the api.
+
+Discovery doesn't provide mechanism to directly support grouping, since group function is not the key attribute of a
+service.
+
+However, alternatives are still available to easily support:
+
+* Opt1. Adding group prefix to a service
+    * Both service provider and consumer have to add group prefix while using discovery
+    * On consumer side, add group prefix in the service name when fetching services according to the grouping rule
+    * Pros: avoid unexpected services sending to consumer and prevent unexpected calls
+    * Cons: requires provider and consumer manually configuration, even though rpc framework would do the stuffs.
+* Opt2. Adding tag to a service
+    * Add tag for the group when registering a service
+    * On consumer side, the addresses with the tag are filter out according to the grouping rule
+    * Pros: can automatically specify the tag by merging operational configurations
+    * Cons: consumers may fetch all services beyond the tag, and it can cause misuse of the data
+* When registering service, provider can determine whether to register the service or not if the provider is not in the
+  grouping rule
+
+The `area` field is not recommended as group name. Because by design `area` represents hard isolation between two
+clusters(area).
+
+Using `area` indicates direct access are prohibited and a gateway/proxy in the middle for the communication. But
+grouping doesn't limit the direct access, instead it indicates direct access available. This(using `area` as group)
+assumption and solution would be broken if any acl according to its definition enforced between areas in the future.
