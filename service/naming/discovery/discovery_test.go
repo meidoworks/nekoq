@@ -33,9 +33,11 @@ func TestInternalApiSlimUsage(t *testing.T) {
 	_ = s2
 	_ = s3
 
-	if err := ns1.SelfKeepAlive(&discovery.Record{
-		Service:       "demo.service01",
-		Area:          "default",
+	if err := ns1.SelfKeepAlive(&discovery.RecordKey{
+		Service: "demo.service01",
+		Area:    "default",
+		NodeId:  "AAA0001",
+	}, &discovery.Record{
 		NodeId:        "AAA0001",
 		RecordVersion: 0,
 		Tags:          nil,

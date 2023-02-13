@@ -17,10 +17,20 @@ func (r *RecordKey) GetKey() string {
 	return fmt.Sprint(r.Service, "||", r.Area, "||", r.NodeId)
 }
 
-type Record struct {
+type ServiceSetItem struct {
 	Service string `json:"service"`
-	Area    string `json:"area"`
-	NodeId  string `json:"node_id"`
+
+	Areas []*AreaSetItem `json:"areas"`
+}
+
+type AreaSetItem struct {
+	Area string `json:"area"`
+
+	Records []*Record `json:"records"`
+}
+
+type Record struct {
+	NodeId string `json:"node_id"`
 
 	RecordVersion int64 `json:"record_version"`
 
@@ -30,14 +40,21 @@ type Record struct {
 }
 
 type IncrementalRecord struct {
-	Record
-	Operation string // change/remove
+	Record    Record    `json:"record"`
+	RecordKey RecordKey `json:"record_key"`
+	Operation string    `json:"operation"` // change/remove
 }
 
 type FullSet struct {
 	CurrentVersion string `json:"current_version"`
 
-	Records []*Record `json:"records"`
+	totalRecordCount int
+
+	RecordSet []*ServiceSetItem `json:"record_set"`
+}
+
+func (f *FullSet) TotalRecordCount() int {
+	return f.totalRecordCount
 }
 
 func (f *FullSet) MarshalJson() ([]byte, error) {
@@ -83,7 +100,7 @@ type ControlData struct {
 
 // NodeService node service for processing node request
 type NodeService interface {
-	SelfKeepAlive(record *Record) error
+	SelfKeepAlive(recordKey *RecordKey, record *Record) error
 	SlimKeepAlive(key *RecordKey) error
 	Offline(key *RecordKey) error
 	OfflineN(keys []*RecordKey) error

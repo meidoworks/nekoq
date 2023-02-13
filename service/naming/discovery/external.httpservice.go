@@ -78,19 +78,22 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
 	peerFull := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+		fetchStart := time.Now()
 		set, err := localPeerService.FullFetch()
 		if err != nil {
 			return ginshared.RenderError(err)
 		}
+		fetchEnd := time.Now()
 
 		start := time.Now()
-		rl := len(set.Records)
+		rl := set.TotalRecordCount()
 		data, err := set.MarshalCbor()
 		if err != nil {
 			return ginshared.RenderError(err)
 		}
 		compressed := snappy.Encode(nil, data)
 		end := time.Now()
+		_externalHttpServiceLogger.Infof("PeerFull fetch time cost:[%d]", fetchEnd.Sub(fetchStart).Milliseconds())
 		_externalHttpServiceLogger.Infof("PeerFull data:[%d], time cost:[%d], compressed size:[%d], total records:[%d]",
 			len(data), (end.Sub(start)).Milliseconds(), len(compressed), rl)
 		return ginshared.RenderBinary(http.StatusOK, compressed)
@@ -140,15 +143,18 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 
 		// register node
 		r := &Record{
-			Service:       service,
-			Area:          area,
 			NodeId:        nodeId,
 			RecordVersion: 0,
 			Tags:          nil,
 			ServiceData:   serviceInfo.HostAndPort,
 			MetaData:      nil,
 		}
-		if err := localNodeService.SelfKeepAlive(r); err != nil {
+		rk := &RecordKey{
+			Service: service,
+			Area:    area,
+			NodeId:  nodeId,
+		}
+		if err := localNodeService.SelfKeepAlive(rk, r); err != nil {
 			return ginshared.RenderError(err)
 		}
 

@@ -28,12 +28,12 @@ func NewDataStore() *DataStore {
 	sizeOfHistory := _sizeOfHistory
 	return &DataStore{
 		LocalData: localData{
-			Data:          map[string]map[string][]*Record{},
+			Data:          map[string]map[string]map[string]*Record{},
 			ChangeLog:     make([][]*IncrementalRecord, sizeOfHistory),
 			SizeOfHistory: int64(sizeOfHistory),
 		},
 		PeerData: peerData{
-			peerDetailMap:  map[int16]map[string]*Record{},
+			peerDetailMap:  map[int16]map[string]*IncrementalRecord{},
 			peerVersionMap: map[int16]string{},
 		},
 		MergedData: mergedData{Data: map[string]map[string][]*Record{}},
@@ -41,7 +41,7 @@ func NewDataStore() *DataStore {
 }
 
 type localData struct {
-	Data map[string]map[string][]*Record // service -> { area -> service_list }
+	Data map[string]map[string]map[string]*Record // service -> { area -> service_list }
 
 	ChangeLog [][]*IncrementalRecord
 
@@ -50,14 +50,29 @@ type localData struct {
 }
 
 type peerData struct {
-	peerDetailMap  map[int16]map[string]*Record
+	peerDetailMap  map[int16]map[string]*IncrementalRecord
 	peerVersionMap map[int16]string
 }
 
 func (p *peerData) buildPeerFromFullSet(peerId int16, fullSet *FullSet) error {
-	detailMap := make(map[string]*Record)
-	for _, v := range fullSet.Records {
-		detailMap[makeServiceKey(v)] = v
+	detailMap := make(map[string]*IncrementalRecord)
+
+	for _, serviceItem := range fullSet.RecordSet {
+		service := serviceItem.Service
+		for _, areaItem := range serviceItem.Areas {
+			area := areaItem.Area
+			for _, srvRecord := range areaItem.Records {
+				detailMap[makeServiceKeyFromParam(serviceItem.Service, areaItem.Area, srvRecord.NodeId)] = &IncrementalRecord{
+					Record: *srvRecord,
+					RecordKey: RecordKey{
+						Service: service,
+						Area:    area,
+						NodeId:  srvRecord.NodeId,
+					},
+					Operation: "",
+				}
+			}
+		}
 	}
 
 	p.peerDetailMap[peerId] = detailMap
@@ -96,9 +111,9 @@ func (d *DataStore) UpdatePeer(peerId int16, incSet *IncrementalSet) error {
 	for _, v := range incSet.Records {
 		switch v.Operation {
 		case IncrementalOperationChange:
-			detailMap[makeServiceKey(&v.Record)] = &v.Record
+			detailMap[makeServiceKeyFromParam(v.RecordKey.Service, v.RecordKey.Area, v.RecordKey.NodeId)] = v
 		case IncrementalOperationRemove:
-			delete(detailMap, makeServiceKey(&v.Record))
+			delete(detailMap, makeServiceKeyFromParam(v.RecordKey.Service, v.RecordKey.Area, v.RecordKey.NodeId))
 		}
 	}
 	d.PeerData.peerVersionMap[peerId] = incSet.CurrentVersion
@@ -124,14 +139,14 @@ func (d *DataStore) CleanupPeer(peerId int16) error {
 func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
 	var data = d.MergedData.Data
 	for _, record := range entries {
-		areaMap, ok := data[record.Service]
+		areaMap, ok := data[record.RecordKey.Service]
 		if !ok {
 			areaMap = map[string][]*Record{}
 		}
-		records := areaMap[record.Area]
+		records := areaMap[record.RecordKey.Area]
 		offset := -1
 		for idx, v := range records {
-			if v.NodeId == record.NodeId {
+			if v.NodeId == record.RecordKey.NodeId {
 				offset = idx
 				break
 			}
@@ -139,9 +154,11 @@ func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
 		switch record.Operation {
 		case IncrementalOperationChange:
 			if offset != -1 {
-				records[offset] = &record.Record
+				var record = record.Record
+				records[offset] = &record
 			} else {
-				areaMap[record.Area] = append(records, &record.Record)
+				var r = record.Record
+				areaMap[record.RecordKey.Area] = append(records, &r)
 			}
 		case IncrementalOperationRemove:
 			if offset != -1 {
@@ -149,7 +166,7 @@ func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
 				var newList = make([]*Record, len(records)-1)
 				copy(newList[0:offset], records[0:offset])
 				copy(newList[offset:], records[offset+1:])
-				areaMap[record.Area] = newList
+				areaMap[record.RecordKey.Area] = newList
 			}
 		}
 	}
@@ -160,18 +177,19 @@ func (d *DataStore) regenerateMerged() {
 	// merge peer data
 	for _, peer := range d.PeerData.peerDetailMap {
 		for _, record := range peer {
-			areaMap, ok := newMap[record.Service]
+			areaMap, ok := newMap[record.RecordKey.Service]
 			if !ok {
 				areaMap = map[string][]*Record{}
-				newMap[record.Service] = areaMap
+				newMap[record.RecordKey.Service] = areaMap
 			}
-			areaMap[record.Area] = append(areaMap[record.Area], record)
+			var r = record.Record
+			areaMap[record.RecordKey.Area] = append(areaMap[record.RecordKey.Area], &r)
 		}
 	}
 	// merge local data
 	for service, areaMap := range d.LocalData.Data {
-		for area, records := range areaMap {
-			for _, record := range records {
+		for area, srvMap := range areaMap {
+			for _, record := range srvMap {
 				areaMap, ok := newMap[service]
 				if !ok {
 					areaMap = map[string][]*Record{}
@@ -195,30 +213,18 @@ func (d *DataStore) OfflineNRecords(keys []*RecordKey) {
 		// remove from data
 		if areaMap, ok := d.LocalData.Data[key.Service]; ok {
 			if srvList, ok := areaMap[key.Area]; ok {
-				found := false
-				var idx int
-				for i, v := range srvList {
-					if v.NodeId == key.NodeId {
-						found = true
-						idx = i
-						break
-					}
-				}
-				if found {
+				_, ok := srvList[key.NodeId]
+				if ok {
 					changed = true
-					//FIXME avoid the operation both freq and copy
-					var newList = make([]*Record, len(srvList)-1)
-					copy(newList[0:idx], srvList[0:idx])
-					copy(newList[idx:], srvList[idx+1:])
-					areaMap[key.Area] = newList
+					delete(srvList, key.NodeId)
 					// add to history only after service existing
-					r := &Record{
+					r := &RecordKey{
 						Service: key.Service,
 						Area:    key.Area,
 						NodeId:  key.NodeId,
 					}
 					changeLog = append(changeLog, &IncrementalRecord{
-						Record:    *r,
+						RecordKey: *r,
 						Operation: IncrementalOperationRemove,
 					})
 				}
@@ -241,7 +247,7 @@ func (d *DataStore) OfflineRecord(key *RecordKey) {
 	d.OfflineNRecords(records)
 }
 
-func (d *DataStore) PersistRecord(record *Record) {
+func (d *DataStore) PersistRecord(recordKey *RecordKey, record *Record) {
 	d.Lock()
 	defer d.Unlock()
 
@@ -250,58 +256,74 @@ func (d *DataStore) PersistRecord(record *Record) {
 	// update history
 	var slot = []*IncrementalRecord{{
 		Record:    *record,
+		RecordKey: *recordKey,
 		Operation: IncrementalOperationChange,
 	}}
 	offset := d.LocalData.Version % d.LocalData.SizeOfHistory
 	d.LocalData.ChangeLog[offset] = slot
 	// update data
-	updateLocalDataMap(record, d.LocalData.Data)
+	updateLocalDataMap(recordKey, record, d.LocalData.Data)
 	// incremental merged data
 	d.incrementalMerged(slot)
 }
 
-func updateLocalDataMap(record *Record, m map[string]map[string][]*Record) {
-	areaMap, ok := m[record.Service]
+func updateLocalDataMap(recordKey *RecordKey, record *Record, m map[string]map[string]map[string]*Record) {
+	areaMap, ok := m[recordKey.Service]
 	if !ok {
-		areaMap = map[string][]*Record{}
-		m[record.Service] = areaMap
+		areaMap = map[string]map[string]*Record{}
+		m[recordKey.Service] = areaMap
 	}
-	srvList, ok := areaMap[record.Area]
+	srvList, ok := areaMap[recordKey.Area]
 	if ok {
-		found := false
-		for i, v := range srvList {
-			if v.NodeId == record.NodeId {
-				srvList[i] = record
-				found = true
-				break
-			}
-		}
-		if !found {
-			areaMap[record.Area] = append(srvList, record)
-		}
+		srvList[record.NodeId] = record
 	} else {
-		areaMap[record.Area] = append(srvList, record)
+		srvList = map[string]*Record{}
+		srvList[record.NodeId] = record
+		areaMap[recordKey.Area] = srvList
 	}
 }
 
-func makeServiceKey(record *Record) string {
-	return fmt.Sprint(record.Service, "||", record.Area, "||", record.NodeId)
+func makeServiceKeyFromParam(service, area, nodeId string) string {
+	return fmt.Sprint(service, "||", area, "||", nodeId)
 }
 
 func (d *DataStore) PeerFetchLocalFull() (*FullSet, error) {
 	d.RLock()
 	defer d.RUnlock()
 
-	var records []*Record
-	for _, v := range d.LocalData.Data {
-		for _, vv := range v {
-			records = append(records, vv...)
+	var source = d.LocalData.Data
+
+	count := 0
+	recordSet := make([]*ServiceSetItem, 0, len(source))
+	for service, areaMap := range source {
+		if len(areaMap) == 0 {
+			continue
 		}
+		areaSet := make([]*AreaSetItem, 0, len(areaMap))
+		for area, srvMap := range areaMap {
+			if len(srvMap) == 0 {
+				continue
+			}
+			count += len(srvMap)
+			records := make([]*Record, 0, len(srvMap))
+			for _, record := range srvMap {
+				records = append(records, record)
+			}
+			areaSet = append(areaSet, &AreaSetItem{
+				Area:    area,
+				Records: records,
+			})
+		}
+		recordSet = append(recordSet, &ServiceSetItem{
+			Service: service,
+			Areas:   areaSet,
+		})
 	}
 
 	fullSet := &FullSet{
-		CurrentVersion: fmt.Sprint(d.LocalData.Version),
-		Records:        records,
+		CurrentVersion:   fmt.Sprint(d.LocalData.Version),
+		totalRecordCount: count,
+		RecordSet:        recordSet,
 	}
 
 	return fullSet, nil

@@ -19,8 +19,8 @@ func (l *LocalNodeService) OfflineN(keys []*RecordKey) error {
 	return nil
 }
 
-func (l *LocalNodeService) SelfKeepAlive(record *Record) error {
-	l.DataStore.PersistRecord(record)
+func (l *LocalNodeService) SelfKeepAlive(recordKey *RecordKey, record *Record) error {
+	l.DataStore.PersistRecord(recordKey, record)
 	return nil
 }
 
