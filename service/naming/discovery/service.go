@@ -1,6 +1,11 @@
 package discovery
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/fxamacker/cbor/v2"
+)
 
 type RecordKey struct {
 	Service string `json:"service"`
@@ -33,6 +38,14 @@ type FullSet struct {
 	CurrentVersion string `json:"current_version"`
 
 	Records []*Record `json:"records"`
+}
+
+func (f *FullSet) MarshalJson() ([]byte, error) {
+	return json.Marshal(f)
+}
+
+func (f *FullSet) MarshalCbor() ([]byte, error) {
+	return cbor.Marshal(f)
 }
 
 type IncrementalSet struct {

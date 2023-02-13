@@ -56,6 +56,18 @@ func RenderJson(status int, object interface{}) Render {
 	}
 }
 
+type binaryRender struct {
+	Status int
+	Data   []byte
+}
+
+func RenderBinary(status int, data []byte) Render {
+	return binaryRender{
+		Status: status,
+		Data:   data,
+	}
+}
+
 type DefaultHandler func(ctx *gin.Context) Render
 
 func Wrap(f DefaultHandler) func(ctx *gin.Context) {
@@ -71,6 +83,8 @@ func Wrap(f DefaultHandler) func(ctx *gin.Context) {
 			ctx.String(r.Status, r.String)
 		case jsonRender:
 			ctx.JSON(r.HttpStatus, r.Object)
+		case binaryRender:
+			ctx.Data(r.Status, "application/octet-stream", r.Data)
 		default:
 			ctx.Status(http.StatusInternalServerError)
 		}

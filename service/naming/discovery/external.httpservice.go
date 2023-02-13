@@ -3,12 +3,19 @@ package discovery
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
+	"github.com/meidoworks/nekoq/shared/logging"
 	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang/snappy"
+)
+
+var (
+	_externalHttpServiceLogger = logging.NewLogger("ExternalHttpService")
 )
 
 type ExternalHttpService struct {
@@ -76,7 +83,18 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 		if err != nil {
 			return ginshared.RenderError(err)
 		}
-		return ginshared.RenderJson(http.StatusOK, set)
+
+		start := time.Now()
+		rl := len(set.Records)
+		data, err := set.MarshalCbor()
+		if err != nil {
+			return ginshared.RenderError(err)
+		}
+		compressed := snappy.Encode(nil, data)
+		end := time.Now()
+		_externalHttpServiceLogger.Infof("PeerFull data:[%d], time cost:[%d], compressed size:[%d], total records:[%d]",
+			len(data), (end.Sub(start)).Milliseconds(), len(compressed), rl)
+		return ginshared.RenderBinary(http.StatusOK, compressed)
 	})
 	peerIncremental := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
 		version := ctx.Param("version")

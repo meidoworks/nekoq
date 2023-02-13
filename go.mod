@@ -3,9 +3,10 @@ module github.com/meidoworks/nekoq
 go 1.19
 
 require (
+	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/gin-gonic/gin v1.6.3
+	github.com/golang/snappy v0.0.4
 	github.com/meidoworks/nekoq-common v0.0.10
-	github.com/pelletier/go-toml v1.9.5
 	github.com/pelletier/go-toml/v2 v2.0.6
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.9.3
@@ -26,6 +27,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
