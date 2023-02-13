@@ -1,7 +1,6 @@
 package discovery
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -69,8 +68,8 @@ func (e *ExternalHttpService) StartService() error {
 }
 
 type ServiceInfo struct {
-	Host string `json:"host"`
-	Port uint16 `json:"port"`
+	// Host 4b+2b/ipv4, 16b+2b/ipv6
+	HostAndPort []byte `json:"host_and_port"`
 }
 
 func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, areaManager warehouseapi.DiscoveryUse) {
@@ -125,7 +124,7 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 		}
 
 		serviceInfo := new(ServiceInfo)
-		if err := ctx.ShouldBind(serviceInfo); err != nil {
+		if err := ctx.ShouldBindJSON(serviceInfo); err != nil {
 			return ginshared.RenderString(http.StatusBadRequest, "service info invalid")
 		}
 
@@ -140,14 +139,13 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 		}
 
 		// register node
-		data, _ := json.Marshal(serviceInfo)
 		r := &Record{
 			Service:       service,
 			Area:          area,
 			NodeId:        nodeId,
 			RecordVersion: 0,
 			Tags:          nil,
-			ServiceData:   data,
+			ServiceData:   serviceInfo.HostAndPort,
 			MetaData:      nil,
 		}
 		if err := localNodeService.SelfKeepAlive(r); err != nil {
