@@ -8,6 +8,7 @@ import (
 	"github.com/meidoworks/nekoq/shared/hash"
 	"github.com/meidoworks/nekoq/shared/logging"
 	"github.com/meidoworks/nekoq/shared/priorityqueue"
+	"github.com/meidoworks/nekoq/shared/timesupplier"
 	"github.com/meidoworks/nekoq/shared/workgroup"
 )
 
@@ -44,8 +45,8 @@ func (n *NodeStatusManager) SetBatchFinalizer(f BatchRecordFinalizer) {
 	n.batchRecordFinalizer = f
 }
 
-func (n *NodeStatusManager) newExpireTime(idx int) time.Time {
-	return time.Now().Add(time.Duration(n.nRandGen[idx].Intn(_serviceTTLRandomInc)) * time.Second)
+func (n *NodeStatusManager) newCachedExpireTime(idx int) time.Time {
+	return timesupplier.CachedTime().Add(time.Duration(n.nRandGen[idx].Intn(_serviceTTLRandomInc)) * time.Second)
 }
 
 func (n *NodeStatusManager) shardKey(key string) int {
@@ -60,13 +61,13 @@ func (n *NodeStatusManager) StartNode(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		t := n.newExpireTime(idx)
+		t := n.newCachedExpireTime(idx)
 		en.Value().ExpireTime = t
 		n.nTimeoutQueue[idx].UpdatePriority(en, int(t.UnixMilli()))
 		return nil
 	}
 
-	expireTime := n.newExpireTime(idx)
+	expireTime := n.newCachedExpireTime(idx)
 	newEntry := &TimeoutEntry{
 		RecordKey:  recordKey,
 		ExpireTime: expireTime,
@@ -85,7 +86,7 @@ func (n *NodeStatusManager) KeepAlive(recordKey *RecordKey) error {
 
 	en, ok := n.nTimeoutMap[idx][key]
 	if ok {
-		t := n.newExpireTime(idx)
+		t := n.newCachedExpireTime(idx)
 		en.Value().ExpireTime = t
 		n.nTimeoutQueue[idx].UpdatePriority(en, int(t.UnixMilli()))
 		return nil
@@ -119,13 +120,12 @@ func (n *NodeStatusManager) nLoop(idx int) func() bool {
 
 		for {
 			_ = <-ticker.C // do not use the time from ticker
-			now := time.Now()
-			n.foreachEntries(now, threshold, idx)
+			n.foreachEntries(threshold, idx)
 		}
 	}
 }
 
-func (n *NodeStatusManager) foreachEntries(now time.Time, threshold time.Duration, idx int) {
+func (n *NodeStatusManager) foreachEntries(threshold time.Duration, idx int) {
 	n.nTimeoutLock[idx].Lock()
 	defer n.nTimeoutLock[idx].Unlock()
 
