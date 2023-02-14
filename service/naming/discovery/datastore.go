@@ -146,6 +146,7 @@ func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
 		records := areaMap[record.RecordKey.Area]
 		offset := -1
 		for idx, v := range records {
+			//FIXME avoid liner search
 			if v.NodeId == record.RecordKey.NodeId {
 				offset = idx
 				break
@@ -163,6 +164,7 @@ func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
 		case IncrementalOperationRemove:
 			if offset != -1 {
 				//FIXME avoid the operation both freq and copy
+				// Update1: looks like copy has good performance
 				var newList = make([]*Record, len(records)-1)
 				copy(newList[0:offset], records[0:offset])
 				copy(newList[offset:], records[offset+1:])

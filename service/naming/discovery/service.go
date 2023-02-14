@@ -57,6 +57,10 @@ func (f *FullSet) TotalRecordCount() int {
 	return f.totalRecordCount
 }
 
+func (f *FullSet) UnmarshalCbor(data []byte) error {
+	return cbor.Unmarshal(data, f)
+}
+
 func (f *FullSet) MarshalJson() ([]byte, error) {
 	return json.Marshal(f)
 }

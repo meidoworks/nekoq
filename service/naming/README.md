@@ -28,9 +28,9 @@ Naming service consists of the following functions
 * [ ] discovery: Custom information overwriting a service
 * [ ] discovery: revision(version) support for service(not recommended) and custom information update
 * [X] discovery: hierarchy discovery support, environment support & environment inherit
-  * For retrieving services, this requires area configuration available in warehouse DiscoveryUse.
-  * For register services, area can be any value even not existing in warehouse DiscoveryUse.
-  * By default, a default area `default` will be created for general purpose.
+    * For retrieving services, this requires area configuration available in warehouse DiscoveryUse.
+    * For register services, area can be any value even not existing in warehouse DiscoveryUse.
+    * By default, a default area `default` will be created for general purpose.
 * [ ] discovery: service tagging/grouping - e.g. active/standby, canary/grey/blue-green release
 * [ ] discovery: manual service management - e.g. downgrade/priority
 * [ ] discovery: multiple tenant
@@ -114,6 +114,15 @@ Hierarchies for service communications:
 
 For the case of using private network between multiple sites, it is the network architecture. It doesn't change any
 assumption to the above.
+
+#### 3.6 Cluster management
+
+In order to avoid impact on the service, any operation(join/leave) to the cluster should be performed during idle
+period. Because new node join or node leave will cause peer initialize full data set or cleanup data set. This will have
+heavy impact on computing and memory resource and will cause GC which will blocking business.
+
+When a new node joint the cluster, it's better to wait for several seconds(depending on the size of data set) before
+starting processing request. This will make peer sync happen finish ahead of user request.
 
 #### 3.A Alternative implementations
 
