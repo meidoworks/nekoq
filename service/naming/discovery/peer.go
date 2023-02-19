@@ -53,6 +53,12 @@ func (p *Peer) ScheduleLoop() {
 	// trigger interval
 	ticker := time.NewTicker(_peerScheduleLoopInterview * time.Second)
 	for now := range ticker.C {
+		// State machine of peers
+		// 1. states: init/full/expired
+		// 2. init -> (fetch full success) -> full
+		// 3. full -> (sync update\ expired/force re-sync) -> expired
+		// 4. full -> (fetch update success) -> full
+		// 5. expired -> (fetch full success) -> full
 		switch p.state {
 		case PeerStateInit:
 			f, err := p.peerWrapper.FullFetch()
