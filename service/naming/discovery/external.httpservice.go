@@ -1,12 +1,16 @@
 package discovery
 
 import (
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/meidoworks/nekoq/config"
+	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
 	"github.com/meidoworks/nekoq/shared/logging"
+	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
+	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
 	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +23,7 @@ var (
 
 type ExternalHttpService struct {
 	engine *gin.Engine
-	addr   string
+	cfg    config.NamingConfig
 
 	dataStore         *DataStore
 	nodeStatusManager *NodeStatusManager
@@ -57,14 +61,36 @@ func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService
 
 	return &ExternalHttpService{
 		engine:            engine,
-		addr:              cfg.Naming.Discovery.Listen,
+		cfg:               cfg.Naming,
 		dataStore:         ds,
 		nodeStatusManager: nodeStatusManager,
 	}, nil
 }
 
 func (e *ExternalHttpService) StartService() error {
-	return e.engine.Run(e.addr)
+	// exposed service
+	if !e.cfg.Discovery.Disable {
+		inproc.GetGlobalShutdownHook().AddBlockingTask(func() {
+			if err := e.engine.Run(e.cfg.Discovery.Listen); err != nil {
+				panic(err)
+			}
+		})
+	}
+	// inproc service
+	{
+		lswitch := inproc.GetLocalSwitch()
+		listener := localswitch.NewLocalSwitchNetListener()
+		lswitch.AddTrafficConsumer(inproc.LocalSwitchDiscovery, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
+			listener.PublishNetConn(conn)
+			return nil
+		})
+
+		err := e.engine.RunListener(listener)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return nil
 }
 
 type ServiceInfo struct {

@@ -10,7 +10,7 @@ var (
 	_namingLogger = logging.NewLogger("NamingLogger")
 )
 
-func SyncStartNaming(cfg *config.NekoConfig) error {
+func StartNaming(cfg *config.NekoConfig) error {
 	datastore := discovery.NewDataStore()
 
 	var peers []*discovery.Peer

@@ -98,7 +98,7 @@ func (s *ServiceNumGen) StartHttp() error {
 			listener := localswitch.NewLocalSwitchNetListener()
 
 			lswitch := inproc.GetLocalSwitch()
-			lswitch.AddTrafficConsumer(1, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
+			lswitch.AddTrafficConsumer(inproc.LocalSwitchNumGen, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
 				listener.PublishNetConn(conn)
 				return nil
 			})

@@ -7,6 +7,8 @@ import (
 	"os/signal"
 
 	"github.com/meidoworks/nekoq/config"
+	"github.com/meidoworks/nekoq/service/naming"
+	"github.com/meidoworks/nekoq/service/naming/warehouse"
 	"github.com/meidoworks/nekoq/service/numgen"
 
 	"github.com/pelletier/go-toml/v2"
@@ -19,7 +21,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&configFile, "c", "nekoq.toml", "-c=nekoq.toml")
+	flag.StringVar(&configFile, "c", "", "-c=nekoq.toml")
 	flag.IntVar(&nodeId, "id", 0, "-id=1 (ignored if config file is specified)")
 }
 
@@ -35,11 +37,12 @@ func main() {
 		if err := toml.Unmarshal(cfgData, nekoCfg); err != nil {
 			panic(err)
 		}
+		//TODO should MergeDefault for default configurations
 	} else {
 		if nodeId >= 0 && nekoCfg.NekoQ.NodeId == nil {
 			var id = int16(nodeId)
+			nekoCfg = nekoCfg.MergeDefault()
 			nekoCfg.NekoQ.NodeId = &id
-			nekoCfg.MergeDefault()
 		}
 	}
 
@@ -65,9 +68,15 @@ func waiting() {
 }
 
 func startService(cfg *config.NekoConfig) {
+	// numgen
 	if numgenService, err := numgen.NewServiceNumGen(*cfg.NekoQ.NodeId, cfg.NumGen); err != nil {
 		panic(err)
 	} else if err := numgenService.StartHttp(); err != nil {
+		panic(err)
+	}
+	// discovery
+	_ = new(warehouse.AreaLevel) //FIXME init warehouse api
+	if err := naming.StartNaming(cfg); err != nil {
 		panic(err)
 	}
 }
