@@ -2,9 +2,12 @@ package main
 
 import (
 	"flag"
-	"time"
+	"log"
+	"os"
+	"os/signal"
 
 	"github.com/meidoworks/nekoq/config"
+	"github.com/meidoworks/nekoq/service/numgen"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/afero"
@@ -44,5 +47,27 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(1 * time.Hour)
+	startService(nekoCfg)
+
+	waiting()
+}
+
+func waiting() {
+	errc := make(chan error, 1)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt)
+	select {
+	case err := <-errc:
+		log.Printf("failed to serve: %v", err)
+	case sig := <-sigs:
+		log.Printf("terminating: %v", sig)
+	}
+}
+
+func startService(cfg *config.NekoConfig) {
+	if numgenService, err := numgen.NewServiceNumGen(*cfg.NekoQ.NodeId, cfg.NumGen); err != nil {
+		panic(err)
+	} else if err := numgenService.StartHttp(); err != nil {
+		panic(err)
+	}
 }

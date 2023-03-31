@@ -1,14 +1,18 @@
 package numgen
 
 import (
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/shared/idgen"
+	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
+	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
 	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +20,7 @@ import (
 
 type ServiceNumGen struct {
 	engine *gin.Engine
-	addr   string
+	cfg    config.NumGenConfig
 
 	nodeId    int16
 	elementId int32
@@ -38,15 +42,12 @@ func (s *ServiceNumGen) GetNumGen(key string) *idgen.IdGen {
 	return gen.(*idgen.IdGen)
 }
 
-func NewServiceNumGen(nodeId int16, addr string) (*ServiceNumGen, error) {
+func NewServiceNumGen(nodeId int16, cfg config.NumGenConfig) (*ServiceNumGen, error) {
 	ng := new(ServiceNumGen)
 	ng.nodeId = nodeId
 
 	ng.engine = gin.New()
-	ng.addr = addr
-
-	// Fill in inproc NumGenSpawn
-	ng = inproc.NumGenSpawn(ng).(*ServiceNumGen)
+	ng.cfg = cfg
 
 	return ng, nil
 }
@@ -91,5 +92,32 @@ func (s *ServiceNumGen) StartHttp() error {
 		return ginshared.RenderOKString(result)
 	}))
 
-	return s.engine.Run(s.addr)
+	// start service in LocalSwitch
+	{
+		inproc.GetGlobalShutdownHook().AddBlockingTask(func() {
+			listener := localswitch.NewLocalSwitchNetListener()
+
+			lswitch := inproc.GetLocalSwitch()
+			lswitch.AddTrafficConsumer(1, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
+				listener.PublishNetConn(conn)
+				return nil
+			})
+
+			err := s.engine.RunListener(listener)
+			if err != nil {
+				panic(err)
+			}
+		})
+	}
+
+	// start exposed service
+	if !s.cfg.Disable {
+		inproc.GetGlobalShutdownHook().AddBlockingTask(func() {
+			if err := s.engine.Run(s.cfg.Listen); err != nil {
+				panic(err)
+			}
+		})
+	}
+
+	return nil
 }

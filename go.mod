@@ -8,9 +8,9 @@ require (
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/golang/snappy v0.0.4
-	github.com/pelletier/go-toml/v2 v2.0.6
+	github.com/pelletier/go-toml/v2 v2.0.7
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spf13/afero v1.9.3
+	github.com/spf13/afero v1.9.5
 	nhooyr.io/websocket v1.8.7
 )
 
@@ -38,9 +38,9 @@ require (
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opencensus.io v0.22.5 // indirect
-	golang.org/x/net v0.0.0-20211029224645-99673261e6eb // indirect
-	golang.org/x/sys v0.0.0-20221010170243-090e33056c14 // indirect
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )

@@ -1,6 +1,7 @@
 package multiplexer
 
 import (
+	"crypto/rand"
 	"errors"
 	"io"
 	"net"
@@ -18,11 +19,24 @@ const (
 	_HandshakeStatusUpgradeVersion          = 2
 )
 
+var inprocToken [32]byte
+
+func init() {
+	if n, err := rand.Read(inprocToken[:]); err != nil {
+		panic(err)
+	} else if n != 32 {
+		panic(errors.New("random number not enough"))
+	}
+}
+
 type TrafficMeta struct {
 	Version         byte
 	PacketType      byte
 	TrafficIndex    uint8
 	HandshakeStatus byte
+
+	//TODO token support
+	Token [32]byte
 }
 
 func (t TrafficMeta) ToData() []byte {
@@ -99,7 +113,7 @@ func (d *DedicatedServerConnMultiplexer) ConsumeConn(conn net.Conn) error {
 	}
 }
 
-func ClientConnInitialization(conn net.Conn, trafficIndex byte) error {
+func ClientConnInitialization(conn net.Conn, trafficIndex uint8) error {
 	tm := TrafficMeta{
 		Version:         _Version,
 		PacketType:      _PacketTypeClientMeta,

@@ -17,7 +17,7 @@ var _defaultConfig = &NekoConfig{
 	MQ: MQConfig{},
 	Naming: NamingConfig{
 		Discovery: struct {
-			Disable bool   `json:"disable"`
+			Disable bool   `toml:"disable"`
 			Listen  string `toml:"listen"`
 			Peers   []struct {
 				Address string `toml:"address"`
@@ -54,7 +54,8 @@ type NekoConfig struct {
 }
 
 type NumGenConfig struct {
-	Listen string `toml:"listen"`
+	Disable bool   `toml:"disable"`
+	Listen  string `toml:"listen"`
 }
 
 type MQConfig struct {
@@ -62,7 +63,7 @@ type MQConfig struct {
 
 type NamingConfig struct {
 	Discovery struct {
-		Disable bool   `json:"disable"`
+		Disable bool   `toml:"disable"`
 		Listen  string `toml:"listen"`
 		Peers   []struct {
 			Address string `toml:"address"`
