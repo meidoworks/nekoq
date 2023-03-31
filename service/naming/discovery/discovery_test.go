@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
 	"github.com/meidoworks/nekoq/service/naming/discovery"
 	_ "github.com/meidoworks/nekoq/service/naming/warehouse"
+	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
 )
 
 func TestInternalApiSlimUsage(t *testing.T) {

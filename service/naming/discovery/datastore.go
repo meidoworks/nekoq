@@ -343,6 +343,14 @@ func (d *DataStore) PeerFetchLocalIncremental(lastVersion int64) (*IncrementalSe
 			Records:        nil,
 		}, nil
 	}
+	// version rewind(e.g. server restart)
+	if lastVersion > d.LocalData.Version {
+		return &IncrementalSet{
+			CurrentVersion: "",
+			ReSync:         true,
+			Records:        nil,
+		}, nil
+	}
 
 	var records []*IncrementalRecord
 	for i := lastVersion + 1; i <= d.LocalData.Version; i++ {

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/meidoworks/nekoq/config"
-	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
+	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
 	"github.com/meidoworks/nekoq/shared/logging"
 	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
 

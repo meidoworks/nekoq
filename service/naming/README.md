@@ -23,6 +23,8 @@ Naming service consists of the following functions
 discovery:
 
 * [X] discovery service
+  * [X] Client API services - service lifecycle management
+  * [X] Peer API services - discovery cluster synchronization
 * [X] discovery: peer full/incremental sync
 * [X] discovery: client state report/lifecycle management
 * [X] discovery: support multiple register from single client

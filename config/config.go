@@ -14,7 +14,6 @@ var _defaultConfig = &NekoConfig{
 	NumGen: NumGenConfig{
 		Listen: ":9301",
 	},
-	MQ: MQConfig{},
 	Naming: NamingConfig{
 		Discovery: struct {
 			Disable bool   `toml:"disable"`
@@ -28,6 +27,7 @@ var _defaultConfig = &NekoConfig{
 			Listen: ":9302",
 		},
 	},
+	MQ: MQConfig{},
 }
 
 func WriteDefault(w io.Writer) error {

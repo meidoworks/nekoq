@@ -3,7 +3,7 @@ package warehouse
 import (
 	"sync"
 
-	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
+	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
 )
 
 func init() {

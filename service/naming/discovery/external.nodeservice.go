@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"github.com/meidoworks/nekoq/service/inproc/warehouseapi"
+	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
 	"github.com/meidoworks/nekoq/shared/logging"
 )
 

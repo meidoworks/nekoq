@@ -12,4 +12,4 @@ TBD
 * [ ] General: graceful shutdown handling
 * [ ] General: error handling and detailed error information
 * [ ] General: profiling/debugging support
-
+* [ ] General: configurations
