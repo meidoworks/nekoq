@@ -68,15 +68,15 @@ func waiting() {
 }
 
 func startService(cfg *config.NekoConfig) {
-	// numgen
-	if numgenService, err := numgen.NewServiceNumGen(*cfg.NekoQ.NodeId, cfg.NumGen); err != nil {
-		panic(err)
-	} else if err := numgenService.StartHttp(); err != nil {
-		panic(err)
-	}
 	// discovery
 	_ = new(warehouse.AreaLevel) //FIXME init warehouse api
 	if err := naming.StartNaming(cfg); err != nil {
+		panic(err)
+	}
+	// numgen
+	if numgenService, err := numgen.NewServiceNumGen(*cfg, cfg.NumGen); err != nil {
+		panic(err)
+	} else if err := numgenService.StartHttp(); err != nil {
 		panic(err)
 	}
 }

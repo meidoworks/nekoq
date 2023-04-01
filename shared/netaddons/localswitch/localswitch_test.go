@@ -58,7 +58,7 @@ func TestLocalSwitchForHttpServer(t *testing.T) {
 	})
 
 	c := NewLocalSwitchHttpClient(lswitch, 1)
-	resp, err := c.Get("http://localhost:8080")
+	resp, err := c.Get("http://localhost")
 	if err != nil {
 		t.Fatal(err)
 	}

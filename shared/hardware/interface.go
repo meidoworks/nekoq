@@ -12,6 +12,14 @@ type IpEntry struct {
 	raw       []byte
 }
 
+func (i *IpEntry) GetName() string {
+	return i.ifaceName
+}
+
+func (i *IpEntry) GetRawIP() []byte {
+	return i.raw
+}
+
 type MachineIpFilter func(ifaceName string) bool
 
 func GetMachineIpList() ([]IpEntry, error) {

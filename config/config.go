@@ -4,15 +4,23 @@ import (
 	"errors"
 	"io"
 
+	"github.com/meidoworks/nekoq/api"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
 var _defaultConfig = &NekoConfig{
 	NekoQ: struct {
 		NodeId *int16 `toml:"node_id"`
-	}{},
+		Area   string `toml:"area"`
+	}{
+		Area: "default",
+	},
 	NumGen: NumGenConfig{
-		Listen: ":9301",
+		Disable:     false,
+		Listen:      ":9301",
+		ServiceName: "nekoq.numgen",
+		NamingAddr:  api.DefaultConfigLocalSwitchNamingAddress,
 	},
 	Naming: NamingConfig{
 		Discovery: struct {
@@ -45,6 +53,7 @@ func WriteDefault(w io.Writer) error {
 type NekoConfig struct {
 	NekoQ struct {
 		NodeId *int16 `toml:"node_id"`
+		Area   string `toml:"area"`
 	} `toml:"nekoq"`
 
 	NumGen NumGenConfig `toml:"numgen"`
@@ -54,8 +63,10 @@ type NekoConfig struct {
 }
 
 type NumGenConfig struct {
-	Disable bool   `toml:"disable"`
-	Listen  string `toml:"listen"`
+	Disable     bool   `toml:"disable"`
+	Listen      string `toml:"listen"`
+	ServiceName string `toml:"service_name"`
+	NamingAddr  string `toml:"naming_address"`
 }
 
 type MQConfig struct {

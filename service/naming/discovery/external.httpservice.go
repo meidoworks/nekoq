@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
@@ -31,6 +32,7 @@ type ExternalHttpService struct {
 
 func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService, error) {
 	engine := gin.New()
+	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())
 	engine.Use(func(context *gin.Context) {
 		context.Next()
@@ -70,17 +72,17 @@ func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService
 func (e *ExternalHttpService) StartService() error {
 	// exposed service
 	if !e.cfg.Discovery.Disable {
-		inproc.GetGlobalShutdownHook().AddBlockingTask(func() {
+		api.GetGlobalShutdownHook().AddBlockingTask(func() {
 			if err := e.engine.Run(e.cfg.Discovery.Listen); err != nil {
 				panic(err)
 			}
 		})
 	}
 	// inproc service
-	{
+	api.GetGlobalShutdownHook().AddBlockingTask(func() {
 		lswitch := inproc.GetLocalSwitch()
 		listener := localswitch.NewLocalSwitchNetListener()
-		lswitch.AddTrafficConsumer(inproc.LocalSwitchDiscovery, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
+		lswitch.AddTrafficConsumer(api.LocalSwitchDiscovery, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
 			listener.PublishNetConn(conn)
 			return nil
 		})
@@ -89,7 +91,7 @@ func (e *ExternalHttpService) StartService() error {
 		if err != nil {
 			panic(err)
 		}
-	}
+	})
 	return nil
 }
 

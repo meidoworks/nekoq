@@ -1,6 +1,7 @@
 package numgen
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -8,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/meidoworks/nekoq/api"
+	"github.com/meidoworks/nekoq/clients/namingclient"
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/shared/idgen"
@@ -24,6 +27,7 @@ type ServiceNumGen struct {
 
 	nodeId    int16
 	elementId int32
+	area      string
 
 	m sync.Map
 }
@@ -42,9 +46,10 @@ func (s *ServiceNumGen) GetNumGen(key string) *idgen.IdGen {
 	return gen.(*idgen.IdGen)
 }
 
-func NewServiceNumGen(nodeId int16, cfg config.NumGenConfig) (*ServiceNumGen, error) {
+func NewServiceNumGen(allCfg config.NekoConfig, cfg config.NumGenConfig) (*ServiceNumGen, error) {
 	ng := new(ServiceNumGen)
-	ng.nodeId = nodeId
+	ng.nodeId = *allCfg.NekoQ.NodeId
+	ng.area = allCfg.NekoQ.Area
 
 	ng.engine = gin.New()
 	ng.cfg = cfg
@@ -94,11 +99,11 @@ func (s *ServiceNumGen) StartHttp() error {
 
 	// start service in LocalSwitch
 	{
-		inproc.GetGlobalShutdownHook().AddBlockingTask(func() {
+		api.GetGlobalShutdownHook().AddBlockingTask(func() {
 			listener := localswitch.NewLocalSwitchNetListener()
 
 			lswitch := inproc.GetLocalSwitch()
-			lswitch.AddTrafficConsumer(inproc.LocalSwitchNumGen, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
+			lswitch.AddTrafficConsumer(api.LocalSwitchNumGen, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
 				listener.PublishNetConn(conn)
 				return nil
 			})
@@ -112,11 +117,28 @@ func (s *ServiceNumGen) StartHttp() error {
 
 	// start exposed service
 	if !s.cfg.Disable {
-		inproc.GetGlobalShutdownHook().AddBlockingTask(func() {
+		api.GetGlobalShutdownHook().AddBlockingTask(func() {
 			if err := s.engine.Run(s.cfg.Listen); err != nil {
 				panic(err)
 			}
 		})
+		var namingClient *namingclient.NamingClient
+		var err error
+		nodeName := fmt.Sprint("nekoq_numgen_", s.nodeId)
+		if s.cfg.NamingAddr == api.DefaultConfigLocalSwitchNamingAddress {
+			if namingClient, err = namingclient.NewLocalSwitchNamingClient(inproc.GetLocalSwitch(), nodeName); err != nil {
+				return err
+			}
+		} else {
+			if namingClient, err = namingclient.NewNamingClient(s.cfg.NamingAddr, nodeName); err != nil {
+				return err
+			}
+		}
+		if err := namingClient.Register(s.cfg.ServiceName, s.area, namingclient.ServiceDesc{
+			Port: namingclient.ParsePortFromHost(s.cfg.Listen),
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil
