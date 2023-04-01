@@ -142,6 +142,7 @@ func (d *DataStore) incrementalMerged(entries []*IncrementalRecord) {
 		areaMap, ok := data[record.RecordKey.Service]
 		if !ok {
 			areaMap = map[string][]*Record{}
+			data[record.RecordKey.Service] = areaMap
 		}
 		records := areaMap[record.RecordKey.Area]
 		offset := -1
