@@ -13,3 +13,7 @@ TBD
 * [ ] General: error handling and detailed error information
 * [ ] General: profiling/debugging support
 * [ ] General: configurations
+* [ ] General: service registration
+  * [ ] Cluster mode: self if api -> registration
+  * [ ] LocalSwitch mode: NIC IP -> registration
+* [ ] General: TBD

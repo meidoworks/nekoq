@@ -39,6 +39,7 @@ discovery:
 * [ ] discovery: service tagging/grouping - e.g. active/standby, canary/grey/blue-green release
 * [ ] discovery: manual service management - e.g. downgrade/priority
 * [ ] discovery: multiple tenant
+* [ ] discovery: Support IPv4/IPv6 multiple addresses in a single node
 * [ ] discovery optimization: merge update into batch to save history slot
 * [ ] discovery optimization: Streaming API for large data sync
 * [ ] discovery optimization: Reduce calculation and network transport(especially for fan-out scenario)
