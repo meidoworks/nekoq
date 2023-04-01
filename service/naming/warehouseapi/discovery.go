@@ -16,7 +16,7 @@ var (
 )
 
 const (
-	RootArea = ""
+	RootArea = "top"
 )
 
 type Area interface {

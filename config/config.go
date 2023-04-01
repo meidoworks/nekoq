@@ -10,17 +10,19 @@ import (
 )
 
 var _defaultConfig = &NekoConfig{
-	NekoQ: struct {
+	Shared: struct {
 		NodeId *int16 `toml:"node_id"`
 		Area   string `toml:"area"`
+
+		NamingAddr string `toml:"naming_address"`
 	}{
-		Area: "default",
+		Area:       "default",
+		NamingAddr: api.DefaultConfigLocalSwitchNamingAddress,
 	},
 	NumGen: NumGenConfig{
 		Disable:     false,
 		Listen:      ":9301",
 		ServiceName: "nekoq.numgen",
-		NamingAddr:  api.DefaultConfigLocalSwitchNamingAddress,
 	},
 	Naming: NamingConfig{
 		Discovery: struct {
@@ -51,10 +53,12 @@ func WriteDefault(w io.Writer) error {
 }
 
 type NekoConfig struct {
-	NekoQ struct {
+	Shared struct {
 		NodeId *int16 `toml:"node_id"`
 		Area   string `toml:"area"`
-	} `toml:"nekoq"`
+
+		NamingAddr string `toml:"naming_address"`
+	} `toml:"shared"`
 
 	NumGen NumGenConfig `toml:"numgen"`
 
@@ -66,7 +70,6 @@ type NumGenConfig struct {
 	Disable     bool   `toml:"disable"`
 	Listen      string `toml:"listen"`
 	ServiceName string `toml:"service_name"`
-	NamingAddr  string `toml:"naming_address"`
 }
 
 type MQConfig struct {
@@ -85,7 +88,7 @@ type NamingConfig struct {
 }
 
 func (n *NekoConfig) Validate() error {
-	if n.NekoQ.NodeId == nil {
+	if n.Shared.NodeId == nil {
 		return errors.New("node id is empty")
 	}
 	return nil

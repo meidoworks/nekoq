@@ -39,10 +39,10 @@ func main() {
 		}
 		//TODO should MergeDefault for default configurations
 	} else {
-		if nodeId >= 0 && nekoCfg.NekoQ.NodeId == nil {
+		if nodeId >= 0 && nekoCfg.Shared.NodeId == nil {
 			var id = int16(nodeId)
 			nekoCfg = nekoCfg.MergeDefault()
-			nekoCfg.NekoQ.NodeId = &id
+			nekoCfg.Shared.NodeId = &id
 		}
 	}
 

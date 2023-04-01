@@ -22,8 +22,9 @@ import (
 )
 
 type ServiceNumGen struct {
-	engine *gin.Engine
-	cfg    config.NumGenConfig
+	engine     *gin.Engine
+	cfg        config.NumGenConfig
+	namingAddr string
 
 	nodeId    int16
 	elementId int32
@@ -48,11 +49,12 @@ func (s *ServiceNumGen) GetNumGen(key string) *idgen.IdGen {
 
 func NewServiceNumGen(allCfg config.NekoConfig, cfg config.NumGenConfig) (*ServiceNumGen, error) {
 	ng := new(ServiceNumGen)
-	ng.nodeId = *allCfg.NekoQ.NodeId
-	ng.area = allCfg.NekoQ.Area
+	ng.nodeId = *allCfg.Shared.NodeId
+	ng.area = allCfg.Shared.Area
 
 	ng.engine = gin.New()
 	ng.cfg = cfg
+	ng.namingAddr = allCfg.Shared.NamingAddr
 
 	return ng, nil
 }
@@ -125,12 +127,12 @@ func (s *ServiceNumGen) StartHttp() error {
 		var namingClient *namingclient.NamingClient
 		var err error
 		nodeName := fmt.Sprint("nekoq_numgen_", s.nodeId)
-		if s.cfg.NamingAddr == api.DefaultConfigLocalSwitchNamingAddress {
+		if s.namingAddr == api.DefaultConfigLocalSwitchNamingAddress {
 			if namingClient, err = namingclient.NewLocalSwitchNamingClient(inproc.GetLocalSwitch(), nodeName); err != nil {
 				return err
 			}
 		} else {
-			if namingClient, err = namingclient.NewNamingClient(s.cfg.NamingAddr, nodeName); err != nil {
+			if namingClient, err = namingclient.NewNamingClient(s.namingAddr, nodeName); err != nil {
 				return err
 			}
 		}

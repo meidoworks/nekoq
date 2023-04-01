@@ -15,7 +15,7 @@ func StartNaming(cfg *config.NekoConfig) error {
 
 	var peers []*discovery.Peer
 	for _, v := range cfg.Naming.Discovery.Peers {
-		if v.NodeId == *cfg.NekoQ.NodeId {
+		if v.NodeId == *cfg.Shared.NodeId {
 			continue
 		}
 		peerService := discovery.NewHttpServerPeerService(v.Address, v.NodeId)

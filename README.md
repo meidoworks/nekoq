@@ -7,9 +7,10 @@ NekoQ
 
 * [X] NumGen
     * Default: Enabled
-* [X] Naming - Discovery
+    * Depend on: Discovery
+* [X] Discovery(Naming)
     * Default: Enabled
-* [ ] Naming - Warehouse
+* [ ] Warehouse(Naming)
 * [ ] MQ
 
 # 2. TODO List
@@ -25,6 +26,7 @@ NekoQ
 * [ ] General: service registration
     * [ ] Cluster mode: self if api -> registration
     * [ ] LocalSwitch mode: NIC IP -> registration
+        * By default, all services are always available in LocalSwitch
 * [ ] General: (Any improvements and suggestions)
 
 Note: These are the general items to be implemented. For more details, refer to the document of each service.
@@ -34,4 +36,8 @@ Note: These are the general items to be implemented. For more details, refer to 
 ## 3.1 LocalSwitch mode(single model, test only)
 
 ## 3.2 Cluster mode
+
+# 4. Service documents
+
+* [MQ Service](DOC.MQ.md)
 
