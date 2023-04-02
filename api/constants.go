@@ -6,6 +6,7 @@ const (
 	LocalSwitchNumGen       = 1
 	LocalSwitchMessageQueue = 2
 	LocalSwitchDiscovery    = 31
+	LocalSwitchCellar       = 32
 	LocalSwitchWarehouse    = 36
 )
 

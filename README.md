@@ -8,7 +8,7 @@ NekoQ
 * [X] NumGen
     * Default: Enabled
     * Depend on: Discovery
-* [X] Discovery(Naming)
+* [X] Discovery(Naming) & Cellar(Naming)
     * Default: Enabled
 * [ ] Warehouse(Naming)
 * [ ] MQ
@@ -23,10 +23,12 @@ NekoQ
 * [ ] General: error handling and detailed error information
 * [ ] General: profiling/debugging support
 * [ ] General: configurations
+    * [ ] Additional: All services can be turned off
 * [ ] General: service registration
     * [ ] Cluster mode: self if api -> registration
     * [ ] LocalSwitch mode: NIC IP -> registration
         * By default, all services are always available in LocalSwitch
+* [ ] General: tuning for critical usecase - high TPS/large data set/broadcast/network bandwidth/etc
 * [ ] General: (Any improvements and suggestions)
 
 Note: These are the general items to be implemented. For more details, refer to the document of each service.
