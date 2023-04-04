@@ -33,7 +33,6 @@ var _defaultConfig = &NekoConfig{
 				Address string `toml:"address"`
 				NodeId  int16  `toml:"node_id"`
 			} `toml:"peers"`
-			DisableDefaultArea bool `toml:"disable_default_area"`
 
 			CellarListen      string `toml:"cellar_listen"`
 			CellarStorageType string `toml:"cellar_storage_type"`
@@ -92,7 +91,6 @@ type NamingConfig struct {
 			Address string `toml:"address"`
 			NodeId  int16  `toml:"node_id"` // Skip self: if node_id == current node_id, then skip
 		} `toml:"peers"`
-		DisableDefaultArea bool `toml:"disable_default_area"`
 
 		CellarListen      string `toml:"cellar_listen"`
 		CellarStorageType string `toml:"cellar_storage_type"`

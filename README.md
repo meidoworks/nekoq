@@ -21,7 +21,7 @@ NekoQ
     * [ ] Cleanup resources
 * [ ] General: graceful service deregister
 * [ ] General: error handling and detailed error information
-* [ ] General: profiling/debugging support
+* [ ] General: logging/profiling/debugging support
 * [ ] General: configurations
     * [ ] Additional: All services can be turned off
 * [ ] General: service registration
@@ -29,6 +29,10 @@ NekoQ
     * [ ] LocalSwitch mode: NIC IP -> registration
         * By default, all services are always available in LocalSwitch
 * [ ] General: tuning for critical usecase - high TPS/large data set/broadcast/network bandwidth/etc
+    * [ ] Speed
+    * [ ] Space/Resource consumption
+* [ ] General: change magic number to configuration
+* [ ] General: Security - AuthZ/AuthN for APIs
 * [ ] General: (Any improvements and suggestions)
 
 Note: These are the general items to be implemented. For more details, refer to the document of each service.

@@ -9,7 +9,7 @@ import (
 	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc"
-	"github.com/meidoworks/nekoq/service/naming/warehouseapi"
+	"github.com/meidoworks/nekoq/service/naming/cellar"
 	"github.com/meidoworks/nekoq/shared/logging"
 	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
 	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
@@ -29,9 +29,11 @@ type ExternalHttpService struct {
 
 	dataStore         *DataStore
 	nodeStatusManager *NodeStatusManager
+
+	cellarApi cellar.CellarAPI
 }
 
-func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService, error) {
+func NewHttpService(cfg *config.NekoConfig, ds *DataStore, cellarApi cellar.CellarAPI) (*ExternalHttpService, error) {
 	engine := gin.New()
 	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())
@@ -54,19 +56,15 @@ func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService
 
 	nodeStatusManager := NewNodeStatusManager()
 
-	areaManager := warehouseapi.WarehouseDiscoveryApi(nil)
-	if !cfg.Naming.Discovery.DisableDefaultArea {
-		if err := areaManager.PutArea("default", warehouseapi.RootArea); err != nil {
-			return nil, err
-		}
-	}
-	registerHandler(engine, ds, nodeStatusManager, areaManager)
+	registerHandler(engine, ds, nodeStatusManager, cellarApi.GetAreaLevelService())
 
 	return &ExternalHttpService{
 		engine:            engine,
 		cfg:               cfg.Naming,
 		dataStore:         ds,
 		nodeStatusManager: nodeStatusManager,
+
+		cellarApi: cellarApi,
 	}, nil
 }
 
@@ -102,9 +100,9 @@ type ServiceInfo struct {
 	IPv6HostAndPort []byte `json:"ipv6_host_and_port"`
 }
 
-func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, areaManager warehouseapi.DiscoveryUse) {
+func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, areaLevelService *cellar.AreaLevelService) {
 	localPeerService := NewLocalPeerService(ds)
-	localNodeService := NewLocalNodeService(ds, areaManager)
+	localNodeService := NewLocalNodeService(ds, areaLevelService)
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
 	peerFull := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {

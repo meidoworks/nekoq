@@ -8,7 +8,6 @@ import (
 
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/naming"
-	"github.com/meidoworks/nekoq/service/naming/warehouse"
 	"github.com/meidoworks/nekoq/service/numgen"
 
 	"github.com/pelletier/go-toml/v2"
@@ -69,7 +68,6 @@ func waiting() {
 
 func startService(cfg *config.NekoConfig) {
 	// discovery
-	_ = new(warehouse.AreaLevel) //FIXME init warehouse api
 	if err := naming.StartNaming(cfg); err != nil {
 		panic(err)
 	}
