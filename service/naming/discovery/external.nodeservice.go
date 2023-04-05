@@ -11,7 +11,7 @@ var (
 
 type LocalNodeService struct {
 	DataStore        *DataStore
-	AreaLevelService *cellar.AreaLevelService
+	AreaLevelService cellar.AreaLevelServiceApi
 }
 
 func (l *LocalNodeService) OfflineN(keys []*RecordKey) error {
@@ -65,7 +65,7 @@ func (l *LocalNodeService) Fetch(service, area string) ([]*Record, error) {
 	return nil, nil
 }
 
-func NewLocalNodeService(dataStore *DataStore, areaLevelService *cellar.AreaLevelService) NodeService {
+func NewLocalNodeService(dataStore *DataStore, areaLevelService cellar.AreaLevelServiceApi) NodeService {
 	return &LocalNodeService{
 		DataStore:        dataStore,
 		AreaLevelService: areaLevelService,

@@ -27,6 +27,10 @@ type Area struct {
 	Attributes map[string]string
 }
 
+type AreaLevelServiceApi interface {
+	AreaLevels(area string) ([]AreaKey, error)
+}
+
 type AreaLevelService struct {
 	areaMap map[string]Area
 
