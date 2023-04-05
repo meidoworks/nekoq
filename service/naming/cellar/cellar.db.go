@@ -14,8 +14,9 @@ const (
 )
 
 var (
-	ErrCellarDatabaseNoSuchRecord       = errors.New("no such record")
-	ErrCellarDataStringHasInvalidFormat = errors.New("CellarData string has invalid format")
+	ErrCellarDatabaseNoSuchRecord        = errors.New("no such record")
+	ErrCellarDataStringHasInvalidFormat  = errors.New("CellarData string has invalid format")
+	ErrCellarDataVersionShouldBePositive = errors.New("CellarData version should be positive")
 )
 
 type CellarData struct {
@@ -47,6 +48,9 @@ func (d *CellarData) validate() error {
 	}
 	if !checkAllowedCharacters(d.GroupKey) {
 		return ErrCellarDataStringHasInvalidFormat
+	}
+	if d.DataVersion <= 0 {
+		return ErrCellarDataVersionShouldBePositive
 	}
 	return nil
 }

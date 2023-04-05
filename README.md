@@ -33,6 +33,7 @@ NekoQ
     * [ ] Space/Resource consumption
 * [ ] General: change magic number to configuration
 * [ ] General: Security - AuthZ/AuthN for APIs
+* [ ] General: reorganize package structure
 * [ ] General: (Any improvements and suggestions)
 
 Note: These are the general items to be implemented. For more details, refer to the document of each service.

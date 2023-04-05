@@ -11,6 +11,7 @@ import (
 	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/service/naming/cellar"
 	"github.com/meidoworks/nekoq/shared/logging"
+	"github.com/meidoworks/nekoq/shared/netaddons/httpaddons"
 	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
 	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
 	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
@@ -56,7 +57,7 @@ func NewHttpService(cfg *config.NekoConfig, ds *DataStore, cellarApi cellar.Cell
 
 	nodeStatusManager := NewNodeStatusManager()
 
-	registerHandler(engine, ds, nodeStatusManager, cellarApi.GetAreaLevelService())
+	registerHandler(engine, ds, nodeStatusManager, cellarApi)
 
 	return &ExternalHttpService{
 		engine:            engine,
@@ -81,7 +82,7 @@ func (e *ExternalHttpService) StartService() error {
 	api.GetGlobalShutdownHook().AddBlockingTask(func() {
 		lswitch := inproc.GetLocalSwitch()
 		listener := localswitch.NewLocalSwitchNetListener()
-		lswitch.AddTrafficConsumer(api.LocalSwitchDiscovery, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
+		lswitch.AddTrafficConsumer(api.LocalSwitchDiscoveryAndCellar, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
 			listener.PublishNetConn(conn)
 			return nil
 		})
@@ -100,9 +101,9 @@ type ServiceInfo struct {
 	IPv6HostAndPort []byte `json:"ipv6_host_and_port"`
 }
 
-func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, areaLevelService *cellar.AreaLevelService) {
+func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, cellarApi cellar.CellarAPI) {
 	localPeerService := NewLocalPeerService(ds)
-	localNodeService := NewLocalNodeService(ds, areaLevelService)
+	localNodeService := NewLocalNodeService(ds, cellarApi.GetAreaLevelService())
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
 	peerFull := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
@@ -277,4 +278,97 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 	engine.DELETE("/node/:node_id/:service/:area", serviceRemove)
 
 	engine.GET("/service/:service/:area", queryService)
+
+	// register cellar
+	registerCellarHttpHandlers(engine, cellarApi)
+}
+
+func registerCellarHttpHandlers(engine *gin.Engine, cellarApi cellar.CellarAPI) {
+	watchService := cellarApi.GetWatchService()
+	// cellar watch - long polling api
+	registerWatchers := func(ctx *gin.Context) {
+		watchId := watchService.NextWatcherSequence()
+
+		// request
+		var watchList []cellar.WatchKey
+		if err := ctx.ShouldBindJSON(&watchList); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "watch list invalid",
+			})
+			return
+		}
+
+		watchChannel := make(chan []*cellar.CellarData, 1)
+		curData, err := watchService.RetrieveAndWatch(watchId, watchList, watchChannel)
+		if err != nil {
+			_externalHttpServiceLogger.Errorf("CellarHttp - register watcher failed:%s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "retrieve and watch failed",
+			})
+			return
+		}
+		defer func() {
+			_ = watchService.Unwatch(watchId)
+		}()
+
+		converter := func(data []*cellar.CellarData) ([]byte, error) {
+			r := make([]*cellar.WatchData, len(data))
+			for i, v := range data {
+				if v != nil {
+					r[i] = &cellar.WatchData{
+						Area:    v.Area,
+						DataKey: v.DataKey,
+						Version: v.DataVersion,
+						Data:    v.DataContent,
+					}
+				} else {
+					r[i] = nil
+				}
+			}
+			return json.Marshal(r)
+		}
+
+		// send current data
+		//ctx.Header("Content-Type", "application/json")
+		data, err := converter(curData)
+		if err != nil {
+			ctx.Status(http.StatusInternalServerError)
+			_externalHttpServiceLogger.Errorf("Cellar watch - convert current data failed:%s", err)
+			return
+		}
+		if err := httpaddons.SendMessage(ctx.Writer, data); err != nil {
+			ctx.Status(http.StatusInternalServerError)
+			_externalHttpServiceLogger.Errorf("Cellar watch - Send current data failed:%s", err)
+			return
+		}
+
+		{
+			timer := time.NewTimer(60 * time.Second) // polling updates for max 60s
+			defer timer.Stop()
+			var data []byte
+			var err error
+			select {
+			case <-timer.C:
+				// send update result with empty for timeout
+				data, err = converter(nil)
+			case newChanges := <-watchChannel:
+				// send update result
+				data, err = converter(newChanges)
+			}
+			if err != nil {
+				ctx.Status(http.StatusInternalServerError)
+				_externalHttpServiceLogger.Errorf("Cellar watch - convert update data failed:%s", err)
+				return
+			}
+			if err := httpaddons.SendMessage(ctx.Writer, data); err != nil {
+				ctx.Status(http.StatusInternalServerError)
+				_externalHttpServiceLogger.Errorf("Cellar watch - Send update data failed:%s", err)
+				return
+			}
+		}
+	}
+
+	engine.POST("/naming/cellar/watchers", registerWatchers)
 }

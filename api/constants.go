@@ -3,11 +3,10 @@ package api
 import "github.com/meidoworks/nekoq/shared/hooks"
 
 const (
-	LocalSwitchNumGen       = 1
-	LocalSwitchMessageQueue = 2
-	LocalSwitchDiscovery    = 31
-	LocalSwitchCellar       = 32
-	LocalSwitchWarehouse    = 36
+	LocalSwitchNumGen             = 1
+	LocalSwitchMessageQueue       = 2
+	LocalSwitchDiscoveryAndCellar = 31
+	LocalSwitchWarehouse          = 36
 )
 
 const (

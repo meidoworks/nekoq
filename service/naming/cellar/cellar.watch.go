@@ -13,13 +13,20 @@ var _cellarWatchLogger = logging.NewLogger("CellarWatch")
 type WatchChannel chan<- []*CellarData
 
 type WatchKey struct {
-	Area    string
-	DataKey string
-	Version int
+	Area    string `json:"area"`
+	DataKey string `json:"data_key"`
+	Version int    `json:"version"`
 }
 
 func (w *WatchKey) UniqueKey() string {
 	return w.Area + "/" + w.DataKey
+}
+
+type WatchData struct {
+	Area    string `json:"area"`
+	DataKey string `json:"data_key"`
+	Version int    `json:"version"`
+	Data    []byte `json:"data"`
 }
 
 func newCellarWatchStore(cellar *Cellar) *CellarWatchStore {
@@ -118,6 +125,7 @@ func (c *CellarWatchStore) Unwatch(watcher int64) error {
 	if !ok {
 		return nil
 	}
+	delete(c.watcherNotify, watcher)
 	for _, v := range n.List {
 		watchMap, ok := c.watcher[v.UniqueKey()]
 		if ok {

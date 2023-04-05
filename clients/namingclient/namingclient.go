@@ -128,7 +128,7 @@ func (n *NamingClient) Register(serviceName, area string, desc ServiceDesc) erro
 }
 
 func NewLocalSwitchNamingClient(lswitch *localswitch.LocalSwitch, node string) (*NamingClient, error) {
-	c := localswitch.NewLocalSwitchHttpClient(lswitch, api.LocalSwitchDiscovery)
+	c := localswitch.NewLocalSwitchHttpClient(lswitch, api.LocalSwitchDiscoveryAndCellar)
 	nc := &NamingClient{
 		r:                 resty.NewWithClient(c),
 		local:             true,

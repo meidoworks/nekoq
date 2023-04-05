@@ -19,6 +19,7 @@ var _defaultConfig = &NekoConfig{
 		Area:       "default",
 		NamingAddr: api.DefaultConfigLocalSwitchNamingAddress,
 	},
+
 	NumGen: NumGenConfig{
 		Disable:     false,
 		Listen:      ":9301",
@@ -34,17 +35,16 @@ var _defaultConfig = &NekoConfig{
 				NodeId  int16  `toml:"node_id"`
 			} `toml:"peers"`
 
-			CellarListen      string `toml:"cellar_listen"`
 			CellarStorageType string `toml:"cellar_storage_type"`
 			CellarStorageAddr string `toml:"cellar_storage_address"`
 		}{
 			Listen: ":9302",
 
-			CellarListen:      ":9303",
 			CellarStorageType: "postgres",
 			CellarStorageAddr: "host=localhost user=admin password=admin dbname=nekoq_cellar port=5432 sslmode=disable TimeZone=Asia/Shanghai",
 		},
 	},
+
 	MQ: MQConfig{},
 }
 
@@ -92,7 +92,6 @@ type NamingConfig struct {
 			NodeId  int16  `toml:"node_id"` // Skip self: if node_id == current node_id, then skip
 		} `toml:"peers"`
 
-		CellarListen      string `toml:"cellar_listen"`
 		CellarStorageType string `toml:"cellar_storage_type"`
 		CellarStorageAddr string `toml:"cellar_storage_address"`
 	} `toml:"discovery"`
