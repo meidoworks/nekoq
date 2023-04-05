@@ -22,6 +22,7 @@ NekoQ
 * [ ] General: graceful service deregister
 * [ ] General: error handling and detailed error information
 * [ ] General: logging/profiling/debugging support
+    * [ ] Including: management portal for viewing data in the process
 * [ ] General: configurations
     * [ ] Additional: All services can be turned off
 * [ ] General: service registration
@@ -34,6 +35,8 @@ NekoQ
 * [ ] General: change magic number to configuration
 * [ ] General: Security - AuthZ/AuthN for APIs
 * [ ] General: reorganize package structure
+* [ ] General: more testing/fuzz
+* [ ] General: better organized documents including key parameter configurations
 * [ ] General: (Any improvements and suggestions)
 
 Note: These are the general items to be implemented. For more details, refer to the document of each service.

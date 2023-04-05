@@ -369,6 +369,33 @@ func registerCellarHttpHandlers(engine *gin.Engine, cellarApi cellar.CellarAPI) 
 			}
 		}
 	}
+	putCellarData := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
+		req := struct {
+			Area    string `json:"area"`
+			DataKey string `json:"data_key"`
+			Data    []byte `json:"data"`
+			Version int    `json:"version"`
+			Group   string `json:"group"`
+		}{}
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			return ginshared.RenderError(err)
+		}
+		cd := cellar.CellarData{
+			Area:        req.Area,
+			DataKey:     req.DataKey,
+			DataVersion: req.Version,
+			DataContent: req.Data,
+			GroupKey:    req.Group,
+		}
+		if err := cellarApi.PutData(cd); err != nil {
+			return ginshared.RenderError(err)
+		} else {
+			return ginshared.RenderJson(http.StatusOK, gin.H{
+				"status": "success",
+			})
+		}
+	})
 
 	engine.POST("/naming/cellar/watchers", registerWatchers)
+	engine.PUT("/naming/cellar/item", putCellarData)
 }

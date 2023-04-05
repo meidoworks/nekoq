@@ -15,16 +15,35 @@ import (
 )
 
 var (
-	configFile string
-	nodeId     int
+	configFile           string
+	nodeId               int
+	generateSampleConfig bool
 )
 
 func init() {
 	flag.StringVar(&configFile, "c", "", "-c=nekoq.toml")
 	flag.IntVar(&nodeId, "id", 0, "-id=1 (ignored if config file is specified)")
+	flag.BoolVar(&generateSampleConfig, "gencfg", false, "-gencfg")
+
+	flag.Parse()
 }
 
 func main() {
+	func() {
+		if generateSampleConfig {
+			data, err := toml.Marshal(new(config.NekoConfig).MergeDefault())
+			if err != nil {
+				panic(err)
+			}
+			fs := afero.NewOsFs()
+			f, err := fs.Create("nekoq.toml.example")
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			f.Write(data)
+		}
+	}()
 	nekoCfg := new(config.NekoConfig)
 
 	if len(configFile) > 0 {

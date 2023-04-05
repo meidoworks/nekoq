@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/meidoworks/nekoq/shared/netaddons/httpaddons"
+
+	"github.com/go-resty/resty/v2"
 )
 
 type DataProcessor func([]WatchKey, []*WatchData) error
@@ -27,14 +30,26 @@ type WatchData struct {
 	Data    []byte `json:"data"`
 }
 
+type PutData struct {
+	Area    string `json:"area"`
+	DataKey string `json:"data_key"`
+	Data    []byte `json:"data"`
+	Version int    `json:"version"`
+	Group   string `json:"group"`
+}
+
 type CellarClient struct {
 	r    *http.Client
+	rr   *resty.Client
 	addr string
+
+	//TODO local failover storage
 }
 
 func NewCellarClient(cellarAddr string) (*CellarClient, error) {
 	c := &CellarClient{
 		r:    new(http.Client),
+		rr:   resty.New(),
 		addr: fmt.Sprint("http://", cellarAddr),
 	}
 	// set timeout to 120, slightly more over than server blocking time
@@ -43,7 +58,31 @@ func NewCellarClient(cellarAddr string) (*CellarClient, error) {
 	return c, nil
 }
 
-func (c CellarClient) GetAndWatch(watchKeys []WatchKey, dataProcessor DataProcessor, updateProcessor UpdateDataProcessor) error {
+func (c *CellarClient) Put(area, dataKey string, data []byte, version int, group string) error {
+	const url = "/naming/cellar/item"
+
+	putData := &PutData{
+		Area:    area,
+		DataKey: dataKey,
+		Data:    data,
+		Version: version,
+		Group:   group,
+	}
+
+	resp, err := c.rr.R().
+		SetBody(putData).
+		Put(c.addr + url)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() == 200 {
+		return nil
+	} else {
+		return errors.New("put failed")
+	}
+}
+
+func (c *CellarClient) GetAndWatch(watchKeys []WatchKey, dataProcessor DataProcessor, updateProcessor UpdateDataProcessor) error {
 	const url = "/naming/cellar/watchers"
 
 	req, err := json.Marshal(watchKeys)
