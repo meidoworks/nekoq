@@ -42,6 +42,7 @@ func main() {
 			}
 			defer f.Close()
 			f.Write(data)
+			os.Exit(1)
 		}
 	}()
 	nekoCfg := new(config.NekoConfig)

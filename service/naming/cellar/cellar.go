@@ -3,6 +3,8 @@ package cellar
 import (
 	"encoding/json"
 	"errors"
+	"log"
+	"os"
 	"time"
 
 	"github.com/meidoworks/nekoq/config"
@@ -10,6 +12,8 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/plugin/dbresolver"
 )
 
 var _cellarLogger = logging.NewLogger("Cellar")
@@ -44,11 +48,38 @@ func NewCellar(cfg *config.NekoConfig) (*Cellar, error) {
 	c := &Cellar{}
 	switch cfg.Naming.Discovery.CellarStorageType {
 	case "postgres":
-		dsn := cfg.Naming.Discovery.CellarStorageAddr
-		if db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{}); err != nil {
+		newLogger := logger.New(
+			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+			logger.Config{
+				SlowThreshold:             time.Millisecond, // Slow SQL threshold
+				LogLevel:                  logger.Info,      // Log level
+				IgnoreRecordNotFoundError: true,             // Ignore ErrRecordNotFound error for logger
+				Colorful:                  true,             // Disable color
+			},
+		)
+		firstSource := cfg.Naming.Discovery.CellarStorageConfig.Sources[0]
+		if db, err := gorm.Open(postgres.Open(firstSource), &gorm.Config{
+			Logger: newLogger,
+		}); err != nil {
 			return nil, err
 		} else {
 			c.db = db
+			var sources []gorm.Dialector
+			for _, v := range cfg.Naming.Discovery.CellarStorageConfig.Sources {
+				sources = append(sources, postgres.Open(v))
+			}
+			var replicas []gorm.Dialector
+			for _, v := range cfg.Naming.Discovery.CellarStorageConfig.Replicas {
+				replicas = append(replicas, postgres.Open(v))
+			}
+			if err := c.db.Use(dbresolver.Register(dbresolver.Config{
+				Sources:           sources,
+				Replicas:          replicas,
+				Policy:            dbresolver.RandomPolicy{},
+				TraceResolverMode: true,
+			})); err != nil {
+				return nil, err
+			}
 		}
 	default:
 		panic(errors.New("unsupported cellar storage type"))

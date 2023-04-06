@@ -35,13 +35,22 @@ var _defaultConfig = &NekoConfig{
 				NodeId  int16  `toml:"node_id"`
 			} `toml:"peers"`
 
-			CellarStorageType string `toml:"cellar_storage_type"`
-			CellarStorageAddr string `toml:"cellar_storage_address"`
+			CellarStorageType   string `toml:"cellar_storage_type"`
+			CellarStorageConfig struct {
+				Sources  []string `toml:"sources"`
+				Replicas []string `toml:"replicas"`
+			} `toml:"cellar_storage_config"`
 		}{
 			Listen: ":9302",
 
 			CellarStorageType: "postgres",
-			CellarStorageAddr: "host=localhost user=admin password=admin dbname=nekoq_cellar port=5432 sslmode=disable TimeZone=Asia/Shanghai",
+			CellarStorageConfig: struct {
+				Sources  []string `toml:"sources"`
+				Replicas []string `toml:"replicas"`
+			}{
+				Sources:  []string{"host=localhost user=admin password=admin dbname=nekoq_cellar port=5432 sslmode=disable TimeZone=Asia/Shanghai"},
+				Replicas: []string{},
+			},
 		},
 	},
 
@@ -92,8 +101,11 @@ type NamingConfig struct {
 			NodeId  int16  `toml:"node_id"` // Skip self: if node_id == current node_id, then skip
 		} `toml:"peers"`
 
-		CellarStorageType string `toml:"cellar_storage_type"`
-		CellarStorageAddr string `toml:"cellar_storage_address"`
+		CellarStorageType   string `toml:"cellar_storage_type"`
+		CellarStorageConfig struct {
+			Sources  []string `toml:"sources"`
+			Replicas []string `toml:"replicas"`
+		} `toml:"cellar_storage_config"`
 	} `toml:"discovery"`
 }
 

@@ -127,7 +127,7 @@ select * from cellar_data where area = $1 and data_key = $2
 
 func (c *Cellar) queryLatestChange() (CellarDataChange, error) {
 	change := CellarDataChange{}
-	r := c.db.Order("change_id desc").Find(&change)
+	r := c.db.Order("change_id desc").Limit(1).Find(&change)
 	if r.Error != nil {
 		return change, r.Error
 	}
