@@ -263,6 +263,10 @@ func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManag
 			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
 		}
 
+		if ctx.Query("children") == "1" {
+			//TODO support query child area
+		}
+
 		rs, err := localNodeService.Fetch(service, area)
 		if err != nil {
 			return ginshared.RenderError(err)
