@@ -19,8 +19,8 @@ import (
 var _NamingClient = logging.NewLogger("NamingClient")
 
 type NamingClient struct {
-	r          *resty.Client
-	namingHost string
+	r           *resty.Client
+	namingHosts []string
 
 	keepAliveInterval int
 
@@ -31,7 +31,7 @@ type NamingClient struct {
 
 func (n *NamingClient) sendKeepAlive(host, service, area string) error {
 	if resp, err := n.r.R().EnableTrace().
-		Head(fmt.Sprintf("%s/node/%s/%s/%s", n.namingHost, n.node, service, area)); err != nil {
+		Head(fmt.Sprintf("%s/node/%s/%s/%s", host, n.node, service, area)); err != nil {
 		return err
 	} else if resp.StatusCode() != 200 {
 		return errors.New("keepalive service failed")
@@ -72,14 +72,14 @@ func convertHostAndPort(host []byte, port int) []byte {
 	return r
 }
 
-func (n *NamingClient) register0(service, area string, desc ServiceDesc) error {
+func (n *NamingClient) register0(namingHost, service, area string, desc ServiceDesc) error {
 	si := &serviceInfo{
 		HostAndPort:     convertHostAndPort(desc.ip, desc.Port),
 		IPv6HostAndPort: convertHostAndPort(desc.ipv6, desc.Port),
 	}
 	if resp, err := n.r.R().EnableTrace().
 		SetBody(si).
-		Put(fmt.Sprintf("%s/node/%s/%s/%s", n.namingHost, n.node, service, area)); err != nil {
+		Put(fmt.Sprintf("%s/node/%s/%s/%s", namingHost, n.node, service, area)); err != nil {
 		return err
 	} else if resp.StatusCode() != 200 {
 		return errors.New("register service failed")
@@ -89,40 +89,43 @@ func (n *NamingClient) register0(service, area string, desc ServiceDesc) error {
 }
 
 func (n *NamingClient) Register(serviceName, area string, desc ServiceDesc) error {
-	if n.local {
-		// fetch ip from NIC and choose the first one
-		// If a chosen ip is needed, it has to be specified in getting ip list from NICs
-		iplist, err := hardware.GetMachineIpList()
-		if err != nil {
-			return err
-		} else if len(iplist) == 0 {
-			return errors.New("no ip found on local NICs")
-		} else {
-			var ifaceName string
-			for _, v := range iplist {
-				if ifaceName == "" {
-					ifaceName = v.GetName()
-				} else if ifaceName != v.GetName() {
-					// only get the addresses of the first iface
-					break
-				}
-				if len(v.GetRawIP()) == 16 && len(desc.ipv6) == 0 {
-					desc.ipv6 = v.GetRawIP()
-				} else if len(v.GetRawIP()) == 4 && len(desc.ip) == 0 {
-					desc.ip = v.GetRawIP()
+	for _, namingHost := range n.namingHosts {
+		if n.local {
+			// fetch ip from NIC and choose the first one
+			// If a chosen ip is needed, it has to be specified in getting ip list from NICs
+			iplist, err := hardware.GetMachineIpList()
+			if err != nil {
+				return err
+			} else if len(iplist) == 0 {
+				return errors.New("no ip found on local NICs")
+			} else {
+				var ifaceName string
+				for _, v := range iplist {
+					if ifaceName == "" {
+						ifaceName = v.GetName()
+					} else if ifaceName != v.GetName() {
+						// only get the addresses of the first iface
+						break
+					}
+					if len(v.GetRawIP()) == 16 && len(desc.ipv6) == 0 {
+						desc.ipv6 = v.GetRawIP()
+					} else if len(v.GetRawIP()) == 4 && len(desc.ip) == 0 {
+						desc.ip = v.GetRawIP()
+					}
 				}
 			}
+		} else {
+			//step1 get ip from selfip api
+			//step2 register service
+			panic("unsupported")
 		}
-	} else {
-		//step1 get ip from selfip api
-		//step2 register service
-		panic("unsupported")
-	}
-	if err := n.register0(serviceName, area, desc); err != nil {
-		return err
-	}
-	if err := n.addKeepAliveTask(n.namingHost, serviceName, area); err != nil {
-		return err
+		if err := n.register0(namingHost, serviceName, area, desc); err != nil {
+			return err
+		}
+		if err := n.addKeepAliveTask(namingHost, serviceName, area); err != nil {
+			return err
+		}
+		return nil
 	}
 	return nil
 }
@@ -132,7 +135,7 @@ func NewLocalSwitchNamingClient(lswitch *localswitch.LocalSwitch, node string) (
 	nc := &NamingClient{
 		r:                 resty.NewWithClient(c),
 		local:             true,
-		namingHost:        "http://localhost",
+		namingHosts:       []string{"http://localhost"},
 		keepAliveInterval: 5,
 		node:              node,
 	}
@@ -140,11 +143,15 @@ func NewLocalSwitchNamingClient(lswitch *localswitch.LocalSwitch, node string) (
 	return nc, nil
 }
 
-func NewNamingClient(namingAddr string, node string) (*NamingClient, error) {
+func NewNamingClient(namingAddrs []string, node string) (*NamingClient, error) {
+	var hosts []string
+	for _, v := range namingAddrs {
+		hosts = append(hosts, fmt.Sprintf("http://%s", v))
+	}
 	nc := &NamingClient{
 		r:                 resty.New(),
 		local:             false,
-		namingHost:        fmt.Sprintf("http://%s", namingAddr),
+		namingHosts:       hosts,
 		keepAliveInterval: 5,
 		node:              node,
 	}

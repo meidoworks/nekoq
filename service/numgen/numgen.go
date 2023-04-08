@@ -1,6 +1,7 @@
 package numgen
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,9 +23,9 @@ import (
 )
 
 type ServiceNumGen struct {
-	engine     *gin.Engine
-	cfg        config.NumGenConfig
-	namingAddr string
+	engine      *gin.Engine
+	cfg         config.NumGenConfig
+	namingAddrs []string
 
 	nodeId    int16
 	elementId int32
@@ -54,7 +55,7 @@ func NewServiceNumGen(allCfg config.NekoConfig, cfg config.NumGenConfig) (*Servi
 
 	ng.engine = gin.New()
 	ng.cfg = cfg
-	ng.namingAddr = allCfg.Shared.NamingAddr
+	ng.namingAddrs = allCfg.Shared.NamingAddrs
 
 	return ng, nil
 }
@@ -127,12 +128,16 @@ func (s *ServiceNumGen) StartHttp() error {
 		var namingClient *namingclient.NamingClient
 		var err error
 		nodeName := fmt.Sprint("nekoq_numgen_", s.nodeId)
-		if s.namingAddr == api.DefaultConfigLocalSwitchNamingAddress {
+		isLocal, err := validateAndCheckLocal(s.namingAddrs)
+		if err != nil {
+			return err
+		}
+		if isLocal {
 			if namingClient, err = namingclient.NewLocalSwitchNamingClient(inproc.GetLocalSwitch(), nodeName); err != nil {
 				return err
 			}
 		} else {
-			if namingClient, err = namingclient.NewNamingClient(s.namingAddr, nodeName); err != nil {
+			if namingClient, err = namingclient.NewNamingClient(s.namingAddrs, nodeName); err != nil {
 				return err
 			}
 		}
@@ -144,4 +149,17 @@ func (s *ServiceNumGen) StartHttp() error {
 	}
 
 	return nil
+}
+
+func validateAndCheckLocal(addrs []string) (bool, error) {
+	var localCnt = 0
+	for _, v := range addrs {
+		if v == api.DefaultConfigLocalSwitchNamingAddress {
+			localCnt++
+		}
+	}
+	if localCnt > 0 && localCnt != len(addrs) {
+		return false, errors.New("inproc should not be used with network address at the same time")
+	}
+	return localCnt > 0, nil
 }

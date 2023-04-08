@@ -37,6 +37,7 @@ NekoQ
 * [ ] General: reorganize package structure
 * [ ] General: more testing/fuzz
 * [ ] General: better organized documents including key parameter configurations
+* [ ] General: Simple configuration for usecases and flexible scale-out with shared nothing/minimum
 * [ ] General: (Any improvements and suggestions)
 
 Note: These are the general items to be implemented. For more details, refer to the document of each service.

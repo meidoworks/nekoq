@@ -14,10 +14,10 @@ var _defaultConfig = &NekoConfig{
 		NodeId *int16 `toml:"node_id"`
 		Area   string `toml:"area"`
 
-		NamingAddr string `toml:"naming_address"`
+		NamingAddrs []string `toml:"naming_addresses"`
 	}{
-		Area:       "default",
-		NamingAddr: api.DefaultConfigLocalSwitchNamingAddress,
+		Area:        "default",
+		NamingAddrs: []string{api.DefaultConfigLocalSwitchNamingAddress},
 	},
 
 	NumGen: NumGenConfig{
@@ -54,7 +54,9 @@ var _defaultConfig = &NekoConfig{
 		},
 	},
 
-	MQ: MQConfig{},
+	MQ: MQConfig{
+		ClusterName: "shared_cluster",
+	},
 }
 
 func WriteDefault(w io.Writer) error {
@@ -74,7 +76,7 @@ type NekoConfig struct {
 		NodeId *int16 `toml:"node_id"`
 		Area   string `toml:"area"`
 
-		NamingAddr string `toml:"naming_address"`
+		NamingAddrs []string `toml:"naming_addresses"`
 	} `toml:"shared"`
 
 	NumGen NumGenConfig `toml:"numgen"`
@@ -90,6 +92,7 @@ type NumGenConfig struct {
 }
 
 type MQConfig struct {
+	ClusterName string `toml:"cluster_name"`
 }
 
 type NamingConfig struct {
