@@ -67,6 +67,10 @@ type ServiceDesc struct {
 }
 
 func convertHostAndPort(host []byte, port int) []byte {
+	// skip empty host
+	if len(host) == 0 {
+		return nil
+	}
 	r := make([]byte, len(host)+2)
 	copy(r[:len(host)], host)
 	binary.BigEndian.PutUint16(r[len(host):], uint16(port))
@@ -133,13 +137,14 @@ func (n *NamingClient) Register(serviceName, area string, desc ServiceDesc) erro
 			if len(ipData) == 0 {
 				return errors.New("ip data error")
 			}
+
 			//step2 register service
-			if len(ipData) == 4 {
-				desc.ip = ipData
+			if len(ipData.To4()) != 0 {
+				desc.ip = ipData.To4()
 				desc.ipv6 = nil
 			} else if len(ipData) == 16 {
 				desc.ip = nil
-				desc.ipv6 = ipData
+				desc.ipv6 = ipData.To16()
 			} else {
 				return errors.New("ip data length error")
 			}
