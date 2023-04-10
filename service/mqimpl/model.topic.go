@@ -17,7 +17,6 @@ type Topic struct {
 	queueMap  map[mqapi.TagId][]*Queue
 	basicLock sync.Mutex
 
-	topicInternalId   int32
 	topicMessageIdGen *idgen.IdGen
 
 	broker *Broker
@@ -69,16 +68,16 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ac
 		}
 	} else {
 		// specified queues
-		m := make(map[int32]*Queue)
+		m := make(map[mqapi.QueueId]*Queue)
 		queueMap := topic.queueMap
 		for _, tag := range tags {
 			queues, ok := queueMap[tag]
 			if ok {
 				for _, q := range queues {
-					id := q.QueueInternalId
+					id := q.QueueId()
 					_, ok := m[id]
 					if !ok {
-						m[q.QueueInternalId] = q
+						m[id] = q
 						err := q.PublishMessage(req, ctx)
 						if err != nil {
 							return EMPTY_MESSAGE_ID_LIST, err
@@ -128,16 +127,16 @@ func (topic *Topic) PublishMessageWithResponse(req *mqapi.Request, ctx *mqapi.Ct
 		}
 	} else {
 		// specified queues
-		m := make(map[int32]*Queue)
+		m := make(map[mqapi.QueueId]*Queue)
 		queueMap := topic.queueMap
 		for _, tag := range tags {
 			queue, ok := queueMap[tag]
 			if ok {
 				for _, q := range queue {
-					id := q.QueueInternalId
+					id := q.QueueId()
 					_, ok := m[id]
 					if !ok {
-						m[q.QueueInternalId] = q
+						m[id] = q
 						err := q.PublishMessage(req, ctx)
 						if err != nil {
 							return EMPTY_MESSAGE_ID_LIST, err
@@ -190,16 +189,16 @@ func (topic *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi
 		}
 	} else {
 		// specified queues
-		m := make(map[int32]*Queue)
+		m := make(map[mqapi.QueueId]*Queue)
 		queueMap := topic.queueMap
 		for _, tag := range tags {
 			queue, ok := queueMap[tag]
 			if ok {
 				for _, q := range queue {
-					id := q.QueueInternalId
+					id := q.QueueId()
 					_, ok := m[id]
 					if !ok {
-						m[q.QueueInternalId] = q
+						m[id] = q
 						err := q.PrePublishMessage(req, ctx)
 						if err != nil {
 							return EMPTY_MESSAGE_ID_LIST, err
@@ -230,16 +229,16 @@ func (topic *Topic) CommitMessages(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mq
 			}
 		}
 	} else {
-		m := make(map[int32]*Queue)
+		m := make(map[mqapi.QueueId]*Queue)
 		queueMap := topic.queueMap
 		for _, tag := range tags {
 			queue, ok := queueMap[tag]
 			if ok {
 				for _, q := range queue {
-					id := q.QueueInternalId
+					id := q.QueueId()
 					_, ok := m[id]
 					if !ok {
-						m[q.QueueInternalId] = q
+						m[id] = q
 						err := q.CommitMessages(req, ctx)
 						if err != nil {
 							return EMPTY_MESSAGE_ID_LIST, err

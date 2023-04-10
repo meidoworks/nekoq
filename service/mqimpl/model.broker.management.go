@@ -26,7 +26,6 @@ func (b *Broker) DefineNewTopic(topicId mqapi.TopicId, option *mqapi.TopicOption
 		return nil, err
 	}
 	t.topicMessageIdGen = idgen.NewIdGen(b.nodeId, topicInternalId)
-	t.topicInternalId = topicInternalId
 	t.broker = b
 
 	err = b.addTopic(t)
@@ -82,12 +81,7 @@ func (b *Broker) DefineNewQueue(queueId mqapi.QueueId, option *mqapi.QueueOption
 	q.QueueChannel = make(chan *mqapi.Request, option.QueueChannelSize)
 	q.InitBatchObtainCount = 16
 	q.MaxBatchObtainCount = 1024
-	queueInternalId, err := b.GenNewInternalQueueId()
-	if err != nil {
-		return nil, err
-	}
-	q.QueueInternalId = queueInternalId
-	err = q.Init(q, option)
+	err := q.Init(q, option)
 	if err != nil {
 		return nil, err
 	}

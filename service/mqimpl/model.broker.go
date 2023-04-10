@@ -24,7 +24,6 @@ type Broker struct {
 
 	//ephemeral
 	topicInternalId int32
-	queueInternalId int32
 
 	generalIdGenerator *idgen.IdGen
 }
@@ -41,7 +40,6 @@ func NewBroker(option *BrokerOption) *Broker {
 	broker.subscribeGroup = make(map[mqapi.SubscribeGroupId]*SubscribeGroup)
 	broker.nodeId = option.NodeId
 	broker.topicInternalId = 0
-	broker.queueInternalId = 0
 	broker.clientNodeMap = make(map[mqapi.NodeId]*Node)
 	broker.generalIdGenerator = idgen.NewIdGen(option.NodeId, 0)
 	return broker
@@ -51,18 +49,6 @@ func (b *Broker) GenNewInternalTopicId() (int32, error) {
 	old := b.topicInternalId
 	for !atomic.CompareAndSwapInt32(&b.topicInternalId, old, old+1) {
 		old = b.topicInternalId
-	}
-	result := old + 1
-	if result < 0x7FFFFFFF {
-		return result, nil
-	}
-	return 0, mqapi.ErrTopicInternalIdExceeded
-}
-
-func (b *Broker) GenNewInternalQueueId() (int32, error) {
-	old := b.queueInternalId
-	for !atomic.CompareAndSwapInt32(&b.queueInternalId, old, old+1) {
-		old = b.queueInternalId
 	}
 	result := old + 1
 	if result < 0x7FFFFFFF {

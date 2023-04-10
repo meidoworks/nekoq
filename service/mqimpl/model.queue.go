@@ -16,8 +16,6 @@ type Queue struct {
 
 	QueueChannel chan *mqapi.Request
 
-	QueueInternalId int32
-
 	// internal
 	mqapi.QueueType
 }
