@@ -1,14 +1,15 @@
 package mqimpl
 
 import (
-	"fmt"
-	"log"
+	"github.com/meidoworks/nekoq/shared/logging"
 )
 
+var _mqLogger = logging.NewLogger("MQCommon")
+
 func LogInfo(v ...interface{}) {
-	fmt.Println(v...)
+	_mqLogger.Infoln(v...)
 }
 
 func LogError(v ...interface{}) {
-	log.Println(v...)
+	_mqLogger.Errorln(v...)
 }

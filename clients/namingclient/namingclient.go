@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -88,6 +89,14 @@ func (n *NamingClient) register0(namingHost, service, area string, desc ServiceD
 	}
 }
 
+func (n *NamingClient) getSelfIp0(namingHost string) (string, error) {
+	if resp, err := n.r.R().Get(fmt.Sprintf("%s/utility/self_ip", namingHost)); err != nil {
+		return "", err
+	} else {
+		return string(resp.Body()), nil
+	}
+}
+
 func (n *NamingClient) Register(serviceName, area string, desc ServiceDesc) error {
 	for _, namingHost := range n.namingHosts {
 		if n.local {
@@ -116,8 +125,24 @@ func (n *NamingClient) Register(serviceName, area string, desc ServiceDesc) erro
 			}
 		} else {
 			//step1 get ip from selfip api
+			ip, err := n.getSelfIp0(namingHost)
+			if err != nil {
+				return err
+			}
+			ipData := net.ParseIP(ip)
+			if len(ipData) == 0 {
+				return errors.New("ip data error")
+			}
 			//step2 register service
-			panic("unsupported")
+			if len(ipData) == 4 {
+				desc.ip = ipData
+				desc.ipv6 = nil
+			} else if len(ipData) == 16 {
+				desc.ip = nil
+				desc.ipv6 = ipData
+			} else {
+				return errors.New("ip data length error")
+			}
 		}
 		if err := n.register0(namingHost, serviceName, area, desc); err != nil {
 			return err

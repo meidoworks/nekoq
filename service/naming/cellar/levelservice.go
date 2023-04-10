@@ -93,10 +93,10 @@ func (l *AreaLevelService) AreaLevels(area string) ([]AreaKey, error) {
 			return nil, ErrAreaNotFound
 		}
 		r = append(r, areaEntry.AreaKey)
-		if areaEntry.parent.Area == "" {
+		if areaEntry.Area == "top" {
 			break
 		} else {
-			area = areaEntry.Area
+			area = areaEntry.parent.Area
 		}
 	}
 	return r, nil
