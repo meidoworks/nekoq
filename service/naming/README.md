@@ -23,8 +23,8 @@ Naming service consists of the following functions
 discovery:
 
 * [X] discovery service
-  * [X] Client API services - service lifecycle management
-  * [X] Peer API services - discovery cluster synchronization
+    * [X] Client API services - service lifecycle management
+    * [X] Peer API services - discovery cluster synchronization
 * [X] discovery: peer full/incremental sync
 * [X] discovery: client state report/lifecycle management
 * [X] discovery: support multiple register from single client
@@ -231,6 +231,26 @@ clusters(area).
 Using `area` indicates direct access are prohibited and a gateway/proxy in the middle for the communication. But
 grouping doesn't limit the direct access, instead it indicates direct access available. This(using `area` as group)
 assumption and solution would be broken if any acl according to its definition enforced between areas in the future.
+
+##### 3.B.3 Support for logical and physical datacenters
+
+There are the cases about logical and physical datacenter supports in naming:
+
+* Deploy an application of the same logical datacenter in different physical datacenters for fault-tolerant
+    * Query service in a single logical datacenter + physical datacenter
+    * Query service across physical datacenters in the same logical datacenter
+* Share resources in the same physical datacenter for different logical datacenters
+    * Query service in a single physical datacenter + logical datacenter
+    * Query service across logical datacenters in the same physical datacenter
+
+Currently, the discovery query requires area as a mandatory parameter to retrieve the service entries in the given area.
+
+Area parameter can be used for locations as well as logical/physical datacenters
+
+In order to support both scenarios, sub areas should be supported for aggregating services.
+
+Querying a given area including sub areas can retrieve all services across the whole hierarchy of the area tree so that
+customization queries will be supported.
 
 ## 4. Document: Warehouse
 
