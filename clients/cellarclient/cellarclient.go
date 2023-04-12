@@ -58,6 +58,25 @@ func NewCellarClient(cellarAddr string) (*CellarClient, error) {
 	return c, nil
 }
 
+func (c *CellarClient) Get(area, dataKey string) (*WatchData, error) {
+	var url = fmt.Sprintf("/naming/cellar/%s/%s", area, dataKey)
+
+	resp, err := c.rr.R().Get(c.addr + url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() == 200 {
+		wd := new(WatchData)
+		if err := json.Unmarshal(resp.Body(), wd); err != nil {
+			return nil, err
+		} else {
+			return wd, nil
+		}
+	} else {
+		return nil, errors.New("get cellar data failed")
+	}
+}
+
 func (c *CellarClient) Put(area, dataKey string, data []byte, version int, group string) error {
 	const url = "/naming/cellar/item"
 
