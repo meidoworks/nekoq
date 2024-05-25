@@ -1,6 +1,7 @@
 package mq
 
 import (
+	"fmt"
 	"runtime"
 	"sync"
 	"testing"
@@ -248,6 +249,7 @@ func TestPrintBrokerTime(t *testing.T) {
 	var end = time.Now()
 
 	t.Log(end.Sub(start))
+	t.Log(fmt.Sprintf("%.2f", float64(CNT)/(end.Sub(start).Seconds())))
 }
 
 func TestPrintBrokerWithResponseTime(t *testing.T) {
@@ -384,13 +386,12 @@ func TestPrintBrokerWithResponseTime(t *testing.T) {
 		}
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
 	wg.Wait()
 
 	var end = time.Now()
 
 	t.Log(end.Sub(start))
+	t.Log(fmt.Sprintf("%.2f", float64(CNT)/(end.Sub(start).Seconds())))
 }
 
 func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
@@ -589,11 +590,10 @@ func TestPrintBrokerExactlyOnceWithResponseTime(t *testing.T) {
 		}
 	}
 
-	time.Sleep(100 * time.Millisecond)
-
 	wg.Wait()
 
 	var end = time.Now()
 
 	t.Log(end.Sub(start))
+	t.Log(fmt.Sprintf("%.2f", float64(CNT)/(end.Sub(start).Seconds())))
 }

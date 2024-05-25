@@ -15,7 +15,7 @@ type PublishGroup struct {
 	basicLock sync.Mutex
 }
 
-// at most once
+// PublishMessage at most once
 func (pg *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
@@ -29,7 +29,7 @@ func (pg *PublishGroup) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqap
 	return ack, err
 }
 
-// at least once
+// PublishGuaranteeMessage at least once
 func (pg *PublishGroup) PublishGuaranteeMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ack, error) {
 	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
@@ -42,7 +42,7 @@ func (pg *PublishGroup) PublishGuaranteeMessage(req *mqapi.Request, ctx *mqapi.C
 	return topic.PublishMessageWithResponse(req, ctx)
 }
 
-// exactly once
+// PrePublishMessage exactly once
 func (pg *PublishGroup) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.MessageReceived, error) {
 	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {
@@ -62,7 +62,7 @@ func (pg *PublishGroup) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (m
 	}, err
 }
 
-// exactly once
+// CommitMessage exactly once
 func (pg *PublishGroup) CommitMessage(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mqapi.MessageFinish, error) {
 	topic, ok := pg.topicMap[req.Header.TopicId]
 	if !ok {

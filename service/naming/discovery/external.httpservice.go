@@ -2,22 +2,25 @@ package discovery
 
 import (
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/meidoworks/nekoq-component/component/comphttp"
+	"github.com/meidoworks/nekoq-component/http/chi"
+
+	chiraw "github.com/go-chi/chi"
+	"github.com/go-chi/render"
+	"github.com/golang/snappy"
 
 	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/service/naming/cellar"
 	"github.com/meidoworks/nekoq/shared/logging"
-	"github.com/meidoworks/nekoq/shared/netaddons/httpaddons"
 	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
 	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
-	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
-
-	"github.com/gin-gonic/gin"
-	"github.com/golang/snappy"
 )
 
 var (
@@ -25,7 +28,7 @@ var (
 )
 
 type ExternalHttpService struct {
-	engine *gin.Engine
+	engine *chi.ChiHttpApiServer
 	cfg    config.NamingConfig
 
 	dataStore         *DataStore
@@ -35,32 +38,19 @@ type ExternalHttpService struct {
 }
 
 func NewHttpService(cfg *config.NekoConfig, ds *DataStore, cellarApi cellar.CellarAPI) (*ExternalHttpService, error) {
-	engine := gin.New()
-	engine.Use(gin.Logger())
-	engine.Use(gin.Recovery())
-	engine.Use(func(context *gin.Context) {
-		context.Next()
-		var err error
-		// handling first error to respond
-		for _, v := range context.Errors {
-			err = v
-			break
-		}
-		if err != nil {
-			context.String(http.StatusInternalServerError, err.Error())
-		}
+	chiSrv := chi.NewChiHttpApiServer(&chi.ChiHttpApiServerConfig{
+		Addr: cfg.Naming.Discovery.Listen,
 	})
-
-	engine.GET("/utility/self_ip", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		return ginshared.RenderOKString(ctx.ClientIP())
-	}))
+	if err := chiSrv.AddHttpApi(chiSelfIpHandler{}); err != nil {
+		return nil, err
+	}
 
 	nodeStatusManager := NewNodeStatusManager()
 
-	registerHandler(engine, ds, nodeStatusManager, cellarApi)
+	registerHandler(chiSrv, ds, nodeStatusManager, cellarApi)
 
 	return &ExternalHttpService{
-		engine:            engine,
+		engine:            chiSrv,
 		cfg:               cfg.Naming,
 		dataStore:         ds,
 		nodeStatusManager: nodeStatusManager,
@@ -73,7 +63,7 @@ func (e *ExternalHttpService) StartService() error {
 	// exposed service
 	if !e.cfg.Discovery.Disable {
 		api.GetGlobalShutdownHook().AddBlockingTask(func() {
-			if err := e.engine.Run(e.cfg.Discovery.Listen); err != nil {
+			if err := e.engine.StartServing(); err != nil {
 				panic(err)
 			}
 		})
@@ -87,7 +77,7 @@ func (e *ExternalHttpService) StartService() error {
 			return nil
 		})
 
-		err := e.engine.RunListener(listener)
+		err := e.engine.StartServicingOn(listener)
 		if err != nil {
 			panic(err)
 		}
@@ -101,323 +91,330 @@ type ServiceInfo struct {
 	IPv6HostAndPort []byte `json:"ipv6_host_and_port"`
 }
 
-func registerHandler(engine *gin.Engine, ds *DataStore, manager *NodeStatusManager, cellarApi cellar.CellarAPI) {
+func (s *ServiceInfo) Bind(r *http.Request) error {
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, s)
+}
+
+type chiSelfIpHandler struct {
+}
+
+func (c chiSelfIpHandler) ParentUrl() string {
+	return ""
+}
+
+func (c chiSelfIpHandler) Url() string {
+	return "/utility/self_ip"
+}
+
+func (c chiSelfIpHandler) HttpMethod() []string {
+	return []string{"GET"}
+}
+
+func (c chiSelfIpHandler) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	return chi.RenderOKString(r.RemoteAddr), nil
+}
+
+type chiPeerFull struct {
+	localPeerService PeerService
+}
+
+func (c chiPeerFull) ParentUrl() string {
+	return ""
+}
+
+func (c chiPeerFull) Url() string {
+	return "/peer/full"
+}
+
+func (c chiPeerFull) HttpMethod() []string {
+	return []string{"GET"}
+}
+
+func (c chiPeerFull) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	fetchStart := time.Now()
+	set, err := c.localPeerService.FullFetch()
+	if err != nil {
+		return chi.RenderError(err), nil
+	}
+	fetchEnd := time.Now()
+
+	start := time.Now()
+	rl := set.TotalRecordCount()
+	data, err := set.MarshalCbor()
+	if err != nil {
+		return chi.RenderError(err), nil
+	}
+	compressed := snappy.Encode(nil, data)
+	end := time.Now()
+	_externalHttpServiceLogger.Infof("PeerFull fetch time cost:[%d]", fetchEnd.Sub(fetchStart).Milliseconds())
+	_externalHttpServiceLogger.Infof("PeerFull data:[%d], time cost:[%d], compressed size:[%d], total records:[%d]",
+		len(data), (end.Sub(start)).Milliseconds(), len(compressed), rl)
+	return chi.RenderBinary(http.StatusOK, compressed), nil
+}
+
+type chiPeerIncremental struct {
+	localPeerService PeerService
+}
+
+func (c chiPeerIncremental) ParentUrl() string {
+	return ""
+}
+
+func (c chiPeerIncremental) Url() string {
+	return "/peer/incremental/{version}"
+}
+
+func (c chiPeerIncremental) HttpMethod() []string {
+	return []string{"GET"}
+}
+
+func (c chiPeerIncremental) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	version := chiraw.URLParam(r, "version")
+	if len(version) <= 0 {
+		return chi.RenderString(http.StatusBadRequest, "version is empty"), nil
+	}
+	incSet, err := c.localPeerService.IncrementalFetch(version)
+	if err != nil {
+		return chi.RenderError(err), nil
+	}
+	return chi.RenderJson(http.StatusOK, incSet), nil
+}
+
+type chiServiceAdd struct {
+	manager          *NodeStatusManager
+	localNodeService NodeService
+}
+
+func (c chiServiceAdd) ParentUrl() string {
+	return ""
+}
+
+func (c chiServiceAdd) Url() string {
+	return "/node/{node_id}/{service}/{area}"
+}
+
+func (c chiServiceAdd) HttpMethod() []string {
+	return []string{"PUT"}
+}
+
+func (c chiServiceAdd) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	nodeId := chiraw.URLParam(r, "node_id")
+	service := chiraw.URLParam(r, "service")
+	area := chiraw.URLParam(r, "area")
+	if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
+		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
+	}
+	if !validateServiceName(service) {
+		return chi.RenderString(http.StatusBadRequest, "service name invalid"), nil
+	}
+	if !validateAreaName(area) {
+		return chi.RenderString(http.StatusBadRequest, "area invalid"), nil
+	}
+	if !validateNodeId(nodeId) {
+		return chi.RenderString(http.StatusBadRequest, "node id invalid"), nil
+	}
+
+	serviceInfo := new(ServiceInfo)
+	if err := render.Bind(r, serviceInfo); err != nil {
+		return chi.RenderString(http.StatusBadRequest, "service info invalid"), nil
+	}
+	data, err := json.Marshal(serviceInfo)
+	if err != nil {
+		_externalHttpServiceLogger.Errorf("marshal service info error:%s", err)
+		return chi.RenderString(http.StatusInternalServerError, "service info error"), nil
+	}
+
+	recordKey := &RecordKey{
+		Service: service,
+		Area:    area,
+		NodeId:  nodeId,
+	}
+	// start node lifecycle
+	if err := c.manager.StartNode(recordKey); err != nil {
+		return chi.RenderError(err), nil
+	}
+
+	// register node
+	record := &Record{
+		NodeId:        nodeId,
+		RecordVersion: 0,
+		Tags:          nil,
+		ServiceData:   data,
+		MetaData:      nil,
+	}
+	rk := &RecordKey{
+		Service: service,
+		Area:    area,
+		NodeId:  nodeId,
+	}
+	if err := c.localNodeService.SelfKeepAlive(rk, record); err != nil {
+		return chi.RenderError(err), nil
+	}
+
+	return chi.RenderStatus(http.StatusOK), nil
+}
+
+type chiServiceKeepAlive struct {
+	manager *NodeStatusManager
+}
+
+func (c chiServiceKeepAlive) ParentUrl() string {
+	return ""
+}
+
+func (c chiServiceKeepAlive) Url() string {
+	return "/node/{node_id}/{service}/{area}"
+}
+
+func (c chiServiceKeepAlive) HttpMethod() []string {
+	return []string{http.MethodHead}
+}
+
+func (c chiServiceKeepAlive) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	nodeId := chiraw.URLParam(r, "node_id")
+	service := chiraw.URLParam(r, "service")
+	area := chiraw.URLParam(r, "area")
+	if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
+		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
+	}
+	if !validateServiceName(service) {
+		return chi.RenderString(http.StatusBadRequest, "service name invalid"), nil
+	}
+	if !validateAreaName(area) {
+		return chi.RenderString(http.StatusBadRequest, "area invalid"), nil
+	}
+	if !validateNodeId(nodeId) {
+		return chi.RenderString(http.StatusBadRequest, "node id invalid"), nil
+	}
+
+	recordKey := &RecordKey{
+		Service: service,
+		Area:    area,
+		NodeId:  nodeId,
+	}
+	if err := c.manager.KeepAlive(recordKey); err != nil {
+		return chi.RenderError(err), nil
+	}
+
+	return chi.RenderStatus(http.StatusOK), nil
+}
+
+type chiServiceRemove struct {
+	manager *NodeStatusManager
+}
+
+func (c chiServiceRemove) ParentUrl() string {
+	return ""
+}
+
+func (c chiServiceRemove) Url() string {
+	return "/node/{node_id}/{service}/{area}"
+}
+
+func (c chiServiceRemove) HttpMethod() []string {
+	return []string{http.MethodDelete}
+}
+
+func (c chiServiceRemove) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	nodeId := chiraw.URLParam(r, "node_id")
+	service := chiraw.URLParam(r, "service")
+	area := chiraw.URLParam(r, "area")
+	if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
+		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
+	}
+	if !validateServiceName(service) {
+		return chi.RenderString(http.StatusBadRequest, "service name invalid"), nil
+	}
+	if !validateAreaName(area) {
+		return chi.RenderString(http.StatusBadRequest, "area invalid"), nil
+	}
+	if !validateNodeId(nodeId) {
+		return chi.RenderString(http.StatusBadRequest, "node id invalid"), nil
+	}
+
+	recordKey := &RecordKey{
+		Service: service,
+		Area:    area,
+		NodeId:  nodeId,
+	}
+	if err := c.manager.Offline(recordKey); err != nil {
+		return chi.RenderError(err), nil
+	}
+
+	return chi.RenderStatus(http.StatusOK), nil
+}
+
+type chiQueryService struct {
+	localNodeService NodeService
+}
+
+func (c chiQueryService) ParentUrl() string {
+	return ""
+}
+
+func (c chiQueryService) Url() string {
+	return "/service/{service}/{area}"
+}
+
+func (c chiQueryService) HttpMethod() []string {
+	return []string{http.MethodGet}
+}
+
+func (c chiQueryService) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	service := chiraw.URLParam(r, "service")
+	area := chiraw.URLParam(r, "area")
+	if len(service) <= 0 || len(area) <= 0 {
+		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
+	}
+	if !validateServiceName(service) {
+		return chi.RenderString(http.StatusBadRequest, "service name invalid"), nil
+	}
+	if !validateAreaName(area) {
+		return chi.RenderString(http.StatusBadRequest, "area invalid"), nil
+	}
+
+	if r.URL.Query().Get("children") == "1" {
+		//TODO support query child area
+	}
+
+	rs, err := c.localNodeService.Fetch(service, area)
+	if err != nil {
+		return chi.RenderError(err), nil
+	}
+	return chi.RenderJson(http.StatusOK, rs), nil
+}
+
+func registerHandler(server *chi.ChiHttpApiServer, ds *DataStore, manager *NodeStatusManager, cellarApi cellar.CellarAPI) {
 	localPeerService := NewLocalPeerService(ds)
 	localNodeService := NewLocalNodeService(ds, cellarApi.GetAreaLevelService())
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
-	peerFull := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		fetchStart := time.Now()
-		set, err := localPeerService.FullFetch()
-		if err != nil {
-			return ginshared.RenderError(err)
-		}
-		fetchEnd := time.Now()
-
-		start := time.Now()
-		rl := set.TotalRecordCount()
-		data, err := set.MarshalCbor()
-		if err != nil {
-			return ginshared.RenderError(err)
-		}
-		compressed := snappy.Encode(nil, data)
-		end := time.Now()
-		_externalHttpServiceLogger.Infof("PeerFull fetch time cost:[%d]", fetchEnd.Sub(fetchStart).Milliseconds())
-		_externalHttpServiceLogger.Infof("PeerFull data:[%d], time cost:[%d], compressed size:[%d], total records:[%d]",
-			len(data), (end.Sub(start)).Milliseconds(), len(compressed), rl)
-		return ginshared.RenderBinary(http.StatusOK, compressed)
-	})
-	peerIncremental := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		version := ctx.Param("version")
-		if len(version) <= 0 {
-			return ginshared.RenderString(http.StatusBadRequest, "version is empty")
-		}
-		incSet, err := localPeerService.IncrementalFetch(version)
-		if err != nil {
-			return ginshared.RenderError(err)
-		}
-		return ginshared.RenderJson(http.StatusOK, incSet)
-	})
-	serviceAdd := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		nodeId := ctx.Param("node_id")
-		service := ctx.Param("service")
-		area := ctx.Param("area")
-		if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
-			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
-		}
-		if !validateServiceName(service) {
-			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
-		}
-		if !validateAreaName(area) {
-			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
-		}
-		if !validateNodeId(nodeId) {
-			return ginshared.RenderString(http.StatusBadRequest, "node id invalid")
-		}
-
-		serviceInfo := new(ServiceInfo)
-		if err := ctx.ShouldBindJSON(serviceInfo); err != nil {
-			return ginshared.RenderString(http.StatusBadRequest, "service info invalid")
-		}
-		data, err := json.Marshal(serviceInfo)
-		if err != nil {
-			_externalHttpServiceLogger.Errorf("marshal service info error:%s", err)
-			return ginshared.RenderString(http.StatusInternalServerError, "service info error")
-		}
-
-		recordKey := &RecordKey{
-			Service: service,
-			Area:    area,
-			NodeId:  nodeId,
-		}
-		// start node lifecycle
-		if err := manager.StartNode(recordKey); err != nil {
-			return ginshared.RenderError(err)
-		}
-
-		// register node
-		r := &Record{
-			NodeId:        nodeId,
-			RecordVersion: 0,
-			Tags:          nil,
-			ServiceData:   data,
-			MetaData:      nil,
-		}
-		rk := &RecordKey{
-			Service: service,
-			Area:    area,
-			NodeId:  nodeId,
-		}
-		if err := localNodeService.SelfKeepAlive(rk, r); err != nil {
-			return ginshared.RenderError(err)
-		}
-
-		return ginshared.RenderStatus(http.StatusOK)
-	})
-	serviceKeepAlive := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		nodeId := ctx.Param("node_id")
-		service := ctx.Param("service")
-		area := ctx.Param("area")
-		if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
-			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
-		}
-		if !validateServiceName(service) {
-			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
-		}
-		if !validateAreaName(area) {
-			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
-		}
-		if !validateNodeId(nodeId) {
-			return ginshared.RenderString(http.StatusBadRequest, "node id invalid")
-		}
-
-		recordKey := &RecordKey{
-			Service: service,
-			Area:    area,
-			NodeId:  nodeId,
-		}
-		if err := manager.KeepAlive(recordKey); err != nil {
-			return ginshared.RenderError(err)
-		}
-
-		return ginshared.RenderStatus(http.StatusOK)
-	})
-	serviceRemove := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		nodeId := ctx.Param("node_id")
-		service := ctx.Param("service")
-		area := ctx.Param("area")
-		if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
-			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
-		}
-		if !validateServiceName(service) {
-			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
-		}
-		if !validateAreaName(area) {
-			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
-		}
-		if !validateNodeId(nodeId) {
-			return ginshared.RenderString(http.StatusBadRequest, "node id invalid")
-		}
-
-		recordKey := &RecordKey{
-			Service: service,
-			Area:    area,
-			NodeId:  nodeId,
-		}
-		if err := manager.Offline(recordKey); err != nil {
-			return ginshared.RenderError(err)
-		}
-
-		return ginshared.RenderStatus(http.StatusOK)
-	})
-	queryService := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		service := ctx.Param("service")
-		area := ctx.Param("area")
-		if len(service) <= 0 || len(area) <= 0 {
-			return ginshared.RenderString(http.StatusBadRequest, "parameter invalid")
-		}
-		if !validateServiceName(service) {
-			return ginshared.RenderString(http.StatusBadRequest, "service name invalid")
-		}
-		if !validateAreaName(area) {
-			return ginshared.RenderString(http.StatusBadRequest, "area invalid")
-		}
-
-		if ctx.Query("children") == "1" {
-			//TODO support query child area
-		}
-
-		rs, err := localNodeService.Fetch(service, area)
-		if err != nil {
-			return ginshared.RenderError(err)
-		}
-		return ginshared.RenderJson(http.StatusOK, rs)
-	})
-
-	engine.GET("/peer/full", peerFull)
-	engine.GET("/peer/incremental/:version", peerIncremental)
-
-	engine.PUT("/node/:node_id/:service/:area", serviceAdd)
-	engine.HEAD("/node/:node_id/:service/:area", serviceKeepAlive)
-	engine.DELETE("/node/:node_id/:service/:area", serviceRemove)
-
-	engine.GET("/service/:service/:area", queryService)
-
-	// register cellar
-	registerCellarHttpHandlers(engine, cellarApi)
-}
-
-func registerCellarHttpHandlers(engine *gin.Engine, cellarApi cellar.CellarAPI) {
-	watchService := cellarApi.GetWatchService()
-	// cellar watch - long polling api
-	registerWatchers := func(ctx *gin.Context) {
-		watchId := watchService.NextWatcherSequence()
-
-		// request
-		var watchList []cellar.WatchKey
-		if err := ctx.ShouldBindJSON(&watchList); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"status":  "error",
-				"message": "watch list invalid",
-			})
-			return
-		}
-
-		watchChannel := make(chan []*cellar.CellarData, 1)
-		curData, err := watchService.RetrieveAndWatch(watchId, watchList, watchChannel)
-		if err != nil {
-			_externalHttpServiceLogger.Errorf("CellarHttp - register watcher failed:%s", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"status":  "error",
-				"message": "retrieve and watch failed",
-			})
-			return
-		}
-		defer func() {
-			_ = watchService.Unwatch(watchId)
-		}()
-
-		converter := func(data []*cellar.CellarData) ([]byte, error) {
-			r := make([]*cellar.WatchData, len(data))
-			for i, v := range data {
-				if v != nil {
-					r[i] = &cellar.WatchData{
-						Area:    v.Area,
-						DataKey: v.DataKey,
-						Version: v.DataVersion,
-						Data:    v.DataContent,
-					}
-				} else {
-					r[i] = nil
-				}
-			}
-			return json.Marshal(r)
-		}
-
-		// send current data
-		//ctx.Header("Content-Type", "application/json")
-		data, err := converter(curData)
-		if err != nil {
-			ctx.Status(http.StatusInternalServerError)
-			_externalHttpServiceLogger.Errorf("Cellar watch - convert current data failed:%s", err)
-			return
-		}
-		if err := httpaddons.SendMessage(ctx.Writer, data); err != nil {
-			ctx.Status(http.StatusInternalServerError)
-			_externalHttpServiceLogger.Errorf("Cellar watch - Send current data failed:%s", err)
-			return
-		}
-
-		{
-			timer := time.NewTimer(60 * time.Second) // polling updates for max 60s
-			defer timer.Stop()
-			var data []byte
-			var err error
-			select {
-			case <-timer.C:
-				// send update result with empty for timeout
-				data, err = converter(nil)
-			case newChanges := <-watchChannel:
-				// send update result
-				data, err = converter(newChanges)
-			}
-			if err != nil {
-				ctx.Status(http.StatusInternalServerError)
-				_externalHttpServiceLogger.Errorf("Cellar watch - convert update data failed:%s", err)
-				return
-			}
-			if err := httpaddons.SendMessage(ctx.Writer, data); err != nil {
-				ctx.Status(http.StatusInternalServerError)
-				_externalHttpServiceLogger.Errorf("Cellar watch - Send update data failed:%s", err)
-				return
-			}
-		}
+	if err := server.AddHttpApi(chiPeerFull{localPeerService: localPeerService}); err != nil {
+		panic(err)
 	}
-	putCellarData := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		req := struct {
-			Area    string `json:"area"`
-			DataKey string `json:"data_key"`
-			Data    []byte `json:"data"`
-			Version int    `json:"version"`
-			Group   string `json:"group"`
-		}{}
-		if err := ctx.ShouldBindJSON(&req); err != nil {
-			return ginshared.RenderError(err)
-		}
-		cd := cellar.CellarData{
-			Area:        req.Area,
-			DataKey:     req.DataKey,
-			DataVersion: req.Version,
-			DataContent: req.Data,
-			GroupKey:    req.Group,
-		}
-		if err := cellarApi.PutData(cd); err != nil {
-			return ginshared.RenderError(err)
-		} else {
-			return ginshared.RenderJson(http.StatusOK, gin.H{
-				"status": "success",
-			})
-		}
-	})
-	getCellarData := ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		dataKey := ctx.Param("data_key")
-		area := ctx.Param("area")
+	if err := server.AddHttpApi(chiPeerIncremental{localPeerService: localPeerService}); err != nil {
+		panic(err)
+	}
+	if err := server.AddHttpApi(chiServiceAdd{
+		manager:          manager,
+		localNodeService: localNodeService,
+	}); err != nil {
+		panic(err)
+	}
+	if err := server.AddHttpApi(chiServiceKeepAlive{
+		manager: manager,
+	}); err != nil {
+		panic(err)
+	}
+	if err := server.AddHttpApi(chiServiceRemove{manager: manager}); err != nil {
+		panic(err)
+	}
+	if err := server.AddHttpApi(chiQueryService{localNodeService: localNodeService}); err != nil {
+		panic(err)
+	}
 
-		data, err := cellarApi.GetData(area, dataKey)
-		if err != nil {
-			return ginshared.RenderError(err)
-		} else {
-			r := &cellar.WatchData{
-				Area:    data.Area,
-				DataKey: data.DataKey,
-				Version: data.DataVersion,
-				Data:    data.DataContent,
-			}
-			return ginshared.RenderJson(http.StatusOK, r)
-		}
-	})
-
-	engine.POST("/naming/cellar/watchers", registerWatchers)
-	engine.PUT("/naming/cellar/item", putCellarData)
-	engine.GET("/naming/cellar/:area/:data_key", getCellarData)
 }

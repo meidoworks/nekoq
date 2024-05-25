@@ -10,6 +10,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/meidoworks/nekoq-component/component/comphttp"
+	"github.com/meidoworks/nekoq-component/http/chi"
+
+	chiraw "github.com/go-chi/chi"
+
 	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/clients/namingclient"
 	"github.com/meidoworks/nekoq/config"
@@ -17,13 +22,10 @@ import (
 	"github.com/meidoworks/nekoq/shared/idgen"
 	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
 	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
-	"github.com/meidoworks/nekoq/shared/thirdpartyshared/ginshared"
-
-	"github.com/gin-gonic/gin"
 )
 
 type ServiceNumGen struct {
-	engine      *gin.Engine
+	engine      *chi.ChiHttpApiServer
 	cfg         config.NumGenConfig
 	namingAddrs []string
 
@@ -53,52 +55,61 @@ func NewServiceNumGen(allCfg config.NekoConfig, cfg config.NumGenConfig) (*Servi
 	ng.nodeId = *allCfg.Shared.NodeId
 	ng.area = allCfg.Shared.Area
 
-	ng.engine = gin.New()
+	ng.engine = chi.NewChiHttpApiServer(&chi.ChiHttpApiServerConfig{
+		Addr: cfg.Listen,
+	})
 	ng.cfg = cfg
 	ng.namingAddrs = allCfg.Shared.NamingAddrs
 
 	return ng, nil
 }
 
+type chiGenNum struct {
+	s *ServiceNumGen
+}
+
+func (c chiGenNum) ParentUrl() string {
+	return ""
+}
+
+func (c chiGenNum) Url() string {
+	return "/v1/{gen_key}/{count}"
+}
+
+func (c chiGenNum) HttpMethod() []string {
+	return []string{http.MethodGet}
+}
+
+func (c chiGenNum) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
+	key := chiraw.URLParam(r, "gen_key")
+	countStr := chiraw.URLParam(r, "count")
+	count, err := strconv.Atoi(countStr)
+	//FIXME hardcoded max 100 IDs
+	if err != nil || count <= 0 || count > 100 {
+		return chi.RenderStatus(http.StatusBadRequest), nil
+	}
+
+	gen := c.s.GetNumGen(key)
+
+	ids, err := gen.NextN(count)
+	if err != nil {
+		return chi.RenderError(err), nil
+	}
+
+	var idstrings = make([]string, 0, len(ids))
+	for _, v := range ids {
+		idstrings = append(idstrings, v.HexString())
+	}
+
+	result := strings.Join(idstrings, "\n")
+	return chi.RenderOKString(result), nil
+}
+
 func (s *ServiceNumGen) StartHttp() error {
-	s.engine.Use(gin.Recovery())
-	s.engine.Use(func(context *gin.Context) {
-		context.Next()
-		var err error
-		// handling first error to respond
-		for _, v := range context.Errors {
-			err = v
-			break
-		}
-		if err != nil {
-			context.String(http.StatusInternalServerError, err.Error())
-		}
-	})
 
-	s.engine.GET("/v1/:gen_key/:count", ginshared.Wrap(func(ctx *gin.Context) ginshared.Render {
-		key := ctx.Param("gen_key")
-		countStr := ctx.Param("count")
-		count, err := strconv.Atoi(countStr)
-		//FIXME hardcoded max 100 IDs
-		if err != nil || count <= 0 || count > 100 {
-			return ginshared.RenderStatus(http.StatusBadRequest)
-		}
-
-		gen := s.GetNumGen(key)
-
-		ids, err := gen.NextN(count)
-		if err != nil {
-			return ginshared.RenderError(err)
-		}
-
-		var idstrings = make([]string, 0, len(ids))
-		for _, v := range ids {
-			idstrings = append(idstrings, v.HexString())
-		}
-
-		result := strings.Join(idstrings, "\n")
-		return ginshared.RenderOKString(result)
-	}))
+	if err := s.engine.AddHttpApi(chiGenNum{s: s}); err != nil {
+		return err
+	}
 
 	// start service in LocalSwitch
 	{
@@ -111,7 +122,7 @@ func (s *ServiceNumGen) StartHttp() error {
 				return nil
 			})
 
-			err := s.engine.RunListener(listener)
+			err := s.engine.StartServicingOn(listener)
 			if err != nil {
 				panic(err)
 			}
@@ -121,7 +132,7 @@ func (s *ServiceNumGen) StartHttp() error {
 	// start exposed service
 	if !s.cfg.Disable {
 		api.GetGlobalShutdownHook().AddBlockingTask(func() {
-			if err := s.engine.Run(s.cfg.Listen); err != nil {
+			if err := s.engine.StartServing(); err != nil {
 				panic(err)
 			}
 		})
