@@ -1,7 +1,9 @@
 package discovery
 
 import (
-	"github.com/meidoworks/nekoq/service/naming/cellar"
+	"errors"
+
+	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/shared/logging"
 )
 
@@ -10,8 +12,7 @@ var (
 )
 
 type LocalNodeService struct {
-	DataStore        *DataStore
-	AreaLevelService cellar.AreaLevelServiceApi
+	DataStore *DataStore
 }
 
 func (l *LocalNodeService) OfflineN(keys []*RecordKey) error {
@@ -45,16 +46,16 @@ func (l *LocalNodeService) CustomInformation(info *CustomInfo) error {
 }
 
 func (l *LocalNodeService) Fetch(service, area string) ([]*Record, error) {
-	areaList, err := l.AreaLevelService.AreaLevels(area)
+	areaList, err := inproc.WarehouseInst.AreaLevel(area)
 	if err != nil {
-		if err == cellar.ErrAreaNotFound {
+		if errors.Is(err, inproc.ErrNoAreaFound) {
 			_nodeServiceLogger.Infof("area:[%s] not found", area)
 			return nil, nil
 		}
 		return nil, err
 	}
 	for _, v := range areaList {
-		records, err := l.DataStore.Fetch(service, v.Area)
+		records, err := l.DataStore.Fetch(service, v)
 		if err != nil {
 			return nil, err
 		}
@@ -65,9 +66,8 @@ func (l *LocalNodeService) Fetch(service, area string) ([]*Record, error) {
 	return nil, nil
 }
 
-func NewLocalNodeService(dataStore *DataStore, areaLevelService cellar.AreaLevelServiceApi) NodeService {
+func NewLocalNodeService(dataStore *DataStore) NodeService {
 	return &LocalNodeService{
-		DataStore:        dataStore,
-		AreaLevelService: areaLevelService,
+		DataStore: dataStore,
 	}
 }

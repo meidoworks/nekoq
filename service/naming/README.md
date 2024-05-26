@@ -18,7 +18,22 @@ Naming service consists of the following functions
 * Warehouse
     * Warehouse is a distributed system for storage which providing consistency in the cluster.
 
+#### Special:
+
+* For internal services in NekoQ including discovery itself, warehouse, numgen and so on, the discovery service will not
+  serve them by default. The reason is all the services are embedded by default in NekoQ so that clients will always
+  specify the addresses of NekoQ cluster.
+
 ## 2. Features
+
+naming:
+
+* [ ] naming: gracefully shutdown
+* [ ] naming: AuthN and AuthZ
+    * [ ] User & Role & Permission
+* [ ] naming: operational
+    * [ ] Logging for debugging
+    * [ ] Cluster operation
 
 discovery:
 
@@ -29,7 +44,6 @@ discovery:
 * [X] discovery: client state report/lifecycle management
 * [X] discovery: support multiple register from single client
 * [ ] discovery: Polling(watch) Operation and API
-* [ ] discovery: gracefully shutdown
 * [ ] discovery: Custom information overwriting a service
 * [ ] discovery: revision(version) support for service(not recommended) and custom information update
 * [X] discovery: hierarchy discovery support, environment support & environment inherit
@@ -48,13 +62,12 @@ discovery:
 warehouse:
 
 * [ ] warehouse service
+* [x] warehouse: area support - add sub area & get area levels
 * [ ] warehouse kv
 * [ ] warehouse directory
 * [ ] warehouse discovery storage
 * [ ] warehouse storage
-* [ ] warehouse consensus algorithm - raft
-* [ ] warehouse listening api
-* [ ] warehouse more algorithm - paxos/gossip/consistent hash
+* [ ] warehouse consistent algorithm - raft/paxos/gossip/consistent hash
 
 ## 3. Document: discovery
 
@@ -261,3 +274,15 @@ data storage. It includes the following implementations in `nekoq-component` :
 
 * Etcd implementation
 
+#### 4.2 Area management
+
+`Area` is used for grouping resources management by NekoQ, providing a mechanism to support functions like geo feature.
+
+The example of area management is described in the above in discovery section.
+
+The operations of area management includes:
+
+* PutArea - Add a new sub area
+* AreaLevel - retrieve the specific area with its parents to the top
+
+Note that: there is always the top level area: `default`

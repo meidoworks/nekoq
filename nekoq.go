@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -16,13 +17,11 @@ import (
 
 var (
 	configFile           string
-	nodeId               int
 	generateSampleConfig bool
 )
 
 func init() {
-	flag.StringVar(&configFile, "c", "", "-c=nekoq.toml")
-	flag.IntVar(&nodeId, "id", 0, "-id=1 (ignored if config file is specified)")
+	flag.StringVar(&configFile, "c", "nekoq.toml", "-c=nekoq.toml")
 	flag.BoolVar(&generateSampleConfig, "gencfg", false, "-gencfg")
 
 	flag.Parse()
@@ -46,6 +45,7 @@ func main() {
 		}
 	}()
 	nekoCfg := new(config.NekoConfig)
+	var configData []byte
 
 	if len(configFile) > 0 {
 		fs := afero.NewOsFs()
@@ -53,20 +53,27 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		configData = cfgData
 		if err := toml.Unmarshal(cfgData, nekoCfg); err != nil {
 			panic(err)
 		}
 		//TODO should MergeDefault for default configurations
 	} else {
-		if nodeId >= 0 && nekoCfg.Shared.NodeId == nil {
-			var id = int16(nodeId)
-			nekoCfg = nekoCfg.MergeDefault()
-			nekoCfg.Shared.NodeId = &id
-		}
+		panic(errors.New("nekoq config file not specified"))
 	}
 
 	if err := nekoCfg.Validate(); err != nil {
 		panic(err)
+	}
+
+	// new configuration file
+	{
+		if err := toml.Unmarshal(configData, &config.Instance); err != nil {
+			panic(err)
+		}
+		if err := config.ValidateInstanceConfiguration(); err != nil {
+			panic(err)
+		}
 	}
 
 	startService(nekoCfg)
@@ -92,9 +99,9 @@ func startService(cfg *config.NekoConfig) {
 		panic(err)
 	}
 	// numgen
-	if numgenService, err := numgen.NewServiceNumGen(*cfg, cfg.NumGen); err != nil {
+	if numgenService, err := numgen.NewServiceNumGen(); err != nil {
 		panic(err)
-	} else if err := numgenService.StartHttp(); err != nil {
+	} else if err := numgenService.StartService(); err != nil {
 		panic(err)
 	}
 }

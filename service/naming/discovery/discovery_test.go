@@ -4,37 +4,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/meidoworks/nekoq/service/naming/cellar"
 	"github.com/meidoworks/nekoq/service/naming/discovery"
 )
 
-type MockedCellarAreaLevelService struct {
-	cellar.AreaLevelService
-}
-
-func (m *MockedCellarAreaLevelService) AreaLevels(area string) ([]cellar.AreaKey, error) {
-	return []cellar.AreaKey{
-		{
-			Area: area,
-		},
-		{
-			Area: "top",
-		},
-	}, nil
-}
-
 func TestInternalApiSlimUsage(t *testing.T) {
-	mockedAreaService := new(MockedCellarAreaLevelService)
-
 	ds1 := discovery.NewDataStore()
 	ps1 := discovery.NewLocalPeerService(ds1)
-	ns1 := discovery.NewLocalNodeService(ds1, mockedAreaService)
+	ns1 := discovery.NewLocalNodeService(ds1)
 	ds2 := discovery.NewDataStore()
 	ps2 := discovery.NewLocalPeerService(ds2)
-	ns2 := discovery.NewLocalNodeService(ds2, mockedAreaService)
+	ns2 := discovery.NewLocalNodeService(ds2)
 	ds3 := discovery.NewDataStore()
 	ps3 := discovery.NewLocalPeerService(ds3)
-	ns3 := discovery.NewLocalNodeService(ds3, mockedAreaService)
+	ns3 := discovery.NewLocalNodeService(ds3)
 	s1 := setupService(t, 1, []*discovery.DataStore{ds1, ds2, ds3}, []discovery.PeerService{ps1, ps2, ps3})
 	s2 := setupService(t, 2, []*discovery.DataStore{ds1, ds2, ds3}, []discovery.PeerService{ps1, ps2, ps3})
 	s3 := setupService(t, 3, []*discovery.DataStore{ds1, ds2, ds3}, []discovery.PeerService{ps1, ps2, ps3})

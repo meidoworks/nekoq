@@ -17,7 +17,6 @@ import (
 	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/config"
 	"github.com/meidoworks/nekoq/service/inproc"
-	"github.com/meidoworks/nekoq/service/naming/cellar"
 	"github.com/meidoworks/nekoq/shared/logging"
 	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
 	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
@@ -33,11 +32,9 @@ type ExternalHttpService struct {
 
 	dataStore         *DataStore
 	nodeStatusManager *NodeStatusManager
-
-	cellarApi cellar.CellarAPI
 }
 
-func NewHttpService(cfg *config.NekoConfig, ds *DataStore, cellarApi cellar.CellarAPI) (*ExternalHttpService, error) {
+func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService, error) {
 	chiSrv := chi.NewChiHttpApiServer(&chi.ChiHttpApiServerConfig{
 		Addr: cfg.Naming.Discovery.Listen,
 	})
@@ -47,15 +44,13 @@ func NewHttpService(cfg *config.NekoConfig, ds *DataStore, cellarApi cellar.Cell
 
 	nodeStatusManager := NewNodeStatusManager()
 
-	registerHandler(chiSrv, ds, nodeStatusManager, cellarApi)
+	registerHandler(chiSrv, ds, nodeStatusManager)
 
 	return &ExternalHttpService{
 		engine:            chiSrv,
 		cfg:               cfg.Naming,
 		dataStore:         ds,
 		nodeStatusManager: nodeStatusManager,
-
-		cellarApi: cellarApi,
 	}, nil
 }
 
@@ -388,9 +383,9 @@ func (c chiQueryService) Handle(r *http.Request) (comphttp.ResponseHandler[http.
 	return chi.RenderJson(http.StatusOK, rs), nil
 }
 
-func registerHandler(server *chi.ChiHttpApiServer, ds *DataStore, manager *NodeStatusManager, cellarApi cellar.CellarAPI) {
+func registerHandler(server *chi.ChiHttpApiServer, ds *DataStore, manager *NodeStatusManager) {
 	localPeerService := NewLocalPeerService(ds)
-	localNodeService := NewLocalNodeService(ds, cellarApi.GetAreaLevelService())
+	localNodeService := NewLocalNodeService(ds)
 	manager.SetBatchFinalizer(localNodeService.OfflineN)
 
 	if err := server.AddHttpApi(chiPeerFull{localPeerService: localPeerService}); err != nil {

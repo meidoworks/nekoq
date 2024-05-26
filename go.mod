@@ -11,14 +11,11 @@ require (
 	github.com/go-chi/render v1.0.3
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/golang/snappy v0.0.4
-	github.com/meidoworks/nekoq-component v0.0.5
+	github.com/meidoworks/nekoq-component v0.0.7
 	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.11.0
 	golang.org/x/net v0.25.0
-	gorm.io/driver/postgres v1.5.7
-	gorm.io/gorm v1.25.10
-	gorm.io/plugin/dbresolver v1.5.1
 	nhooyr.io/websocket v1.8.11
 )
 
@@ -36,12 +33,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
-	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
-	github.com/jackc/pgx/v5 v5.5.5 // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
-	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -51,8 +42,6 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240521202816-d264139d666e // indirect

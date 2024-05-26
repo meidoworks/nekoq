@@ -2,8 +2,8 @@ package naming
 
 import (
 	"github.com/meidoworks/nekoq/config"
-	"github.com/meidoworks/nekoq/service/naming/cellar"
 	"github.com/meidoworks/nekoq/service/naming/discovery"
+	"github.com/meidoworks/nekoq/service/naming/warehouse"
 	"github.com/meidoworks/nekoq/shared/logging"
 )
 
@@ -12,11 +12,11 @@ var (
 )
 
 func StartNaming(cfg *config.NekoConfig) error {
-	cellarService, err := startCellar(cfg)
-	if err != nil {
+	// start warehouse
+	wh := warehouse.NewWarehouse()
+	if err := wh.Startup(); err != nil {
 		return err
 	}
-	var cellarApi cellar.CellarAPI = cellarService
 
 	datastore := discovery.NewDataStore()
 
@@ -34,18 +34,10 @@ func StartNaming(cfg *config.NekoConfig) error {
 		peers = append(peers, peer)
 	}
 
-	d, err := discovery.NewHttpService(cfg, datastore, cellarApi)
+	d, err := discovery.NewHttpService(cfg, datastore)
 	if err != nil {
 		return err
 	}
 	_namingLogger.Infof("start discover service.")
 	return d.StartService()
-}
-
-func startCellar(cfg *config.NekoConfig) (*cellar.Cellar, error) {
-	c, err := cellar.NewCellar(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
 }
