@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	chiraw "github.com/go-chi/chi"
 	"github.com/meidoworks/nekoq-component/component/comphttp"
 	"github.com/meidoworks/nekoq-component/http/chi"
 )
@@ -27,8 +26,8 @@ func (c chiGenNum) HttpMethod() []string {
 }
 
 func (c chiGenNum) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
-	key := chiraw.URLParam(r, "gen_key")
-	countStr := chiraw.URLParam(r, "count")
+	key := chi.GetUrlParam(r, "gen_key")
+	countStr := chi.GetUrlParam(r, "count")
 	count, err := strconv.Atoi(countStr)
 	//FIXME hardcoded max 100 IDs
 	if err != nil || count <= 0 || count > 100 {

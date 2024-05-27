@@ -7,8 +7,6 @@ toolchain go1.22.3
 require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/fxamacker/cbor/v2 v2.6.0
-	github.com/go-chi/chi v1.5.5
-	github.com/go-chi/render v1.0.3
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/golang/snappy v0.0.4
 	github.com/meidoworks/nekoq-component v0.0.7
@@ -20,7 +18,6 @@ require (
 )
 
 require (
-	github.com/ajg/form v1.5.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
