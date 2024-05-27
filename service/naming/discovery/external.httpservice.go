@@ -3,23 +3,17 @@ package discovery
 import (
 	"encoding/json"
 	"io"
-	"net"
 	"net/http"
 	"time"
 
 	"github.com/meidoworks/nekoq-component/component/comphttp"
 	"github.com/meidoworks/nekoq-component/http/chi"
 
-	chiraw "github.com/go-chi/chi"
-	"github.com/go-chi/render"
 	"github.com/golang/snappy"
 
 	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/config"
-	"github.com/meidoworks/nekoq/service/inproc"
 	"github.com/meidoworks/nekoq/shared/logging"
-	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
-	"github.com/meidoworks/nekoq/shared/netaddons/multiplexer"
 )
 
 var (
@@ -63,20 +57,6 @@ func (e *ExternalHttpService) StartService() error {
 			}
 		})
 	}
-	// inproc service
-	api.GetGlobalShutdownHook().AddBlockingTask(func() {
-		lswitch := inproc.GetLocalSwitch()
-		listener := localswitch.NewLocalSwitchNetListener()
-		lswitch.AddTrafficConsumer(api.LocalSwitchDiscoveryAndCellar, func(conn net.Conn, meta multiplexer.TrafficMeta) error {
-			listener.PublishNetConn(conn)
-			return nil
-		})
-
-		err := e.engine.StartServicingOn(listener)
-		if err != nil {
-			panic(err)
-		}
-	})
 	return nil
 }
 
@@ -168,7 +148,7 @@ func (c chiPeerIncremental) HttpMethod() []string {
 }
 
 func (c chiPeerIncremental) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
-	version := chiraw.URLParam(r, "version")
+	version := chi.GetUrlParam(r, "version")
 	if len(version) <= 0 {
 		return chi.RenderString(http.StatusBadRequest, "version is empty"), nil
 	}
@@ -197,9 +177,9 @@ func (c chiServiceAdd) HttpMethod() []string {
 }
 
 func (c chiServiceAdd) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
-	nodeId := chiraw.URLParam(r, "node_id")
-	service := chiraw.URLParam(r, "service")
-	area := chiraw.URLParam(r, "area")
+	nodeId := chi.GetUrlParam(r, "node_id")
+	service := chi.GetUrlParam(r, "service")
+	area := chi.GetUrlParam(r, "area")
 	if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
 		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
 	}
@@ -214,7 +194,7 @@ func (c chiServiceAdd) Handle(r *http.Request) (comphttp.ResponseHandler[http.Re
 	}
 
 	serviceInfo := new(ServiceInfo)
-	if err := render.Bind(r, serviceInfo); err != nil {
+	if err := chi.BindJson(r, serviceInfo); err != nil {
 		return chi.RenderString(http.StatusBadRequest, "service info invalid"), nil
 	}
 	data, err := json.Marshal(serviceInfo)
@@ -270,9 +250,9 @@ func (c chiServiceKeepAlive) HttpMethod() []string {
 }
 
 func (c chiServiceKeepAlive) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
-	nodeId := chiraw.URLParam(r, "node_id")
-	service := chiraw.URLParam(r, "service")
-	area := chiraw.URLParam(r, "area")
+	nodeId := chi.GetUrlParam(r, "node_id")
+	service := chi.GetUrlParam(r, "service")
+	area := chi.GetUrlParam(r, "area")
 	if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
 		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
 	}
@@ -315,9 +295,9 @@ func (c chiServiceRemove) HttpMethod() []string {
 }
 
 func (c chiServiceRemove) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
-	nodeId := chiraw.URLParam(r, "node_id")
-	service := chiraw.URLParam(r, "service")
-	area := chiraw.URLParam(r, "area")
+	nodeId := chi.GetUrlParam(r, "node_id")
+	service := chi.GetUrlParam(r, "service")
+	area := chi.GetUrlParam(r, "area")
 	if len(nodeId) <= 0 || len(service) <= 0 || len(area) <= 0 {
 		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
 	}
@@ -360,8 +340,8 @@ func (c chiQueryService) HttpMethod() []string {
 }
 
 func (c chiQueryService) Handle(r *http.Request) (comphttp.ResponseHandler[http.ResponseWriter], error) {
-	service := chiraw.URLParam(r, "service")
-	area := chiraw.URLParam(r, "area")
+	service := chi.GetUrlParam(r, "service")
+	area := chi.GetUrlParam(r, "area")
 	if len(service) <= 0 || len(area) <= 0 {
 		return chi.RenderString(http.StatusBadRequest, "parameter invalid"), nil
 	}

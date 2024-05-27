@@ -61,13 +61,16 @@ discovery:
 
 warehouse:
 
-* [ ] warehouse service
+* [x] warehouse: service
+* [x] warehouse: system internal data prefix: /_sys/
 * [x] warehouse: area support - add sub area & get area levels
 * [ ] warehouse kv
+    * Operations: Get/Set/Delete/Range/Prefix
 * [ ] warehouse directory
-* [ ] warehouse discovery storage
 * [ ] warehouse storage
-* [ ] warehouse consistent algorithm - raft/paxos/gossip/consistent hash
+* [ ] warehouse: consistent algorithm - raft/paxos/gossip/consistent hash
+* [ ] warehouse: cluster with management based on consistent algorithm. node roles: leader/follower/learner. Join/Leave
+  cluster.
 
 ## 3. Document: discovery
 
