@@ -11,7 +11,7 @@ var (
 	_namingLogger = logging.NewLogger("NamingLogger")
 )
 
-func StartNaming(cfg *config.NekoConfig) error {
+func StartNaming() error {
 	// start warehouse
 	wh := warehouse.NewWarehouse()
 	if err := wh.Startup(); err != nil {
@@ -21,8 +21,8 @@ func StartNaming(cfg *config.NekoConfig) error {
 	datastore := discovery.NewDataStore()
 
 	var peers []*discovery.Peer
-	for _, v := range cfg.Naming.Discovery.Peers {
-		if v.NodeId == *cfg.Shared.NodeId {
+	for _, v := range config.Instance.Services.Naming.Discovery.Peers {
+		if v.NodeId == config.Instance.NekoQ.NodeId {
 			continue
 		}
 		peerService := discovery.NewHttpServerPeerService(v.Address, v.NodeId)
@@ -34,7 +34,7 @@ func StartNaming(cfg *config.NekoConfig) error {
 		peers = append(peers, peer)
 	}
 
-	d, err := discovery.NewHttpService(cfg, datastore)
+	d, err := discovery.NewHttpService(datastore)
 	if err != nil {
 		return err
 	}

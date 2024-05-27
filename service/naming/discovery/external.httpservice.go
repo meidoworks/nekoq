@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -21,28 +22,29 @@ var (
 )
 
 type ExternalHttpService struct {
-	engine *chi.ChiHttpApiServer
-	cfg    config.NamingConfig
+	engine []*chi.ChiHttpApiServer
 
 	dataStore         *DataStore
 	nodeStatusManager *NodeStatusManager
 }
 
-func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService, error) {
-	chiSrv := chi.NewChiHttpApiServer(&chi.ChiHttpApiServerConfig{
-		Addr: cfg.Naming.Discovery.Listen,
-	})
-	if err := chiSrv.AddHttpApi(chiSelfIpHandler{}); err != nil {
-		return nil, err
-	}
-
+func NewHttpService(ds *DataStore) (*ExternalHttpService, error) {
 	nodeStatusManager := NewNodeStatusManager()
 
-	registerHandler(chiSrv, ds, nodeStatusManager)
+	var chis []*chi.ChiHttpApiServer
+	for _, v := range config.Instance.Services.Naming.ServerRealAddress {
+		addr := fmt.Sprint(v, ":", config.Instance.Services.Naming.Discovery.Port)
+		chiSrv := chi.NewChiHttpApiServer(&chi.ChiHttpApiServerConfig{
+			Addr: addr,
+		})
+		if err := chiSrv.AddHttpApi(chiSelfIpHandler{}); err != nil {
+			return nil, err
+		}
+		registerHandler(chiSrv, ds, nodeStatusManager)
+	}
 
 	return &ExternalHttpService{
-		engine:            chiSrv,
-		cfg:               cfg.Naming,
+		engine:            chis,
 		dataStore:         ds,
 		nodeStatusManager: nodeStatusManager,
 	}, nil
@@ -50,9 +52,9 @@ func NewHttpService(cfg *config.NekoConfig, ds *DataStore) (*ExternalHttpService
 
 func (e *ExternalHttpService) StartService() error {
 	// exposed service
-	if !e.cfg.Discovery.Disable {
+	for idx := range e.engine {
 		api.GetGlobalShutdownHook().AddBlockingTask(func() {
-			if err := e.engine.StartServing(); err != nil {
+			if err := e.engine[idx].StartServing(); err != nil {
 				panic(err)
 			}
 		})

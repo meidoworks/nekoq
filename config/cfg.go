@@ -7,6 +7,10 @@ var _defaultConfiguration = struct {
 		Area string `toml:"area"`
 	} `toml:"nekoq"`
 
+	MQ struct {
+		ClusterName string `toml:"cluster_name"`
+	} `toml:"mq"`
+
 	Services struct {
 		NumGen struct {
 			ServerRealAddress []string `toml:"server_real_address"`
@@ -24,7 +28,11 @@ var _defaultConfiguration = struct {
 				Port int `toml:"port"`
 			} `toml:"warehouse"`
 			Discovery struct {
-				Port int `toml:"port"`
+				Port  int `toml:"port"`
+				Peers []struct {
+					Address string `toml:"address"`
+					NodeId  int16  `toml:"node_id"`
+				} `toml:"peers"`
 			} `toml:"discovery"`
 		} `toml:"naming"`
 	} `toml:"services"`

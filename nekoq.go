@@ -30,7 +30,7 @@ func init() {
 func main() {
 	func() {
 		if generateSampleConfig {
-			data, err := toml.Marshal(new(config.NekoConfig).MergeDefault())
+			data, err := toml.Marshal(config.Instance)
 			if err != nil {
 				panic(err)
 			}
@@ -44,7 +44,7 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	nekoCfg := new(config.NekoConfig)
+
 	var configData []byte
 
 	if len(configFile) > 0 {
@@ -54,16 +54,8 @@ func main() {
 			panic(err)
 		}
 		configData = cfgData
-		if err := toml.Unmarshal(cfgData, nekoCfg); err != nil {
-			panic(err)
-		}
-		//TODO should MergeDefault for default configurations
 	} else {
 		panic(errors.New("nekoq config file not specified"))
-	}
-
-	if err := nekoCfg.Validate(); err != nil {
-		panic(err)
 	}
 
 	// new configuration file
@@ -76,7 +68,7 @@ func main() {
 		}
 	}
 
-	startService(nekoCfg)
+	startService()
 
 	waiting()
 }
@@ -93,9 +85,9 @@ func waiting() {
 	}
 }
 
-func startService(cfg *config.NekoConfig) {
+func startService() {
 	// discovery
-	if err := naming.StartNaming(cfg); err != nil {
+	if err := naming.StartNaming(); err != nil {
 		panic(err)
 	}
 	// numgen
