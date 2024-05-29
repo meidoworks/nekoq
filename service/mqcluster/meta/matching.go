@@ -1,4 +1,4 @@
-package mqmeta
+package meta
 
 import (
 	"fmt"

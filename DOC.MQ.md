@@ -11,6 +11,7 @@
 
 ## 2. TODO List
 
+* [ ] [MQ Client]: Broker discovery
 * [ ] [MQ Config]: validate configurations
 * [ ] [MQ PubSub]: Metadata management enhancement 1:
     * Topic/Queue/PublishGroup/SubscribeGroup deletion

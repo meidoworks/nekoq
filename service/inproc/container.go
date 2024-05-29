@@ -22,6 +22,9 @@ type Warehouse interface {
 	Del(key string) error
 
 	WatchFolder(folder string) (<-chan api.WatchEvent, func(), error)
+
+	Leader(key string) (string, error)
+	AcquireLeader(key string, node string) (string, error)
 }
 
 var WarehouseInst Warehouse
