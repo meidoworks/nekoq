@@ -29,6 +29,11 @@ type MemQueue struct {
 	Queue mqapi.Queue
 }
 
+func (m *MemQueue) Issues() {
+	//FIXME 1. not support cluster replication
+	//FIXME 2. block publish if MessageChannel is full especially when no subscriber
+}
+
 func (m *MemQueue) Close(ctx context.Context) error {
 	//TODO
 	return nil

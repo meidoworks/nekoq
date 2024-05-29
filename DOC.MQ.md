@@ -2,43 +2,48 @@
 
 ## 1. Features
 
+* [x] [MQ PubSub Concept]: metadata management:
+    * Auto metadata creation: simply use of mq
+    * Management portal of metadata: For operation purpose. Centralize, Standard process, Minimum impact.
+* [x] [MQ PubSub]: Metadata management:
+    * Topic/Queue/PublishGroup/SubscribeGroup creation
+    * Topic-Queue/Topic-PublishGroup/Queue-SubscribeGroup binding
+
 ## 2. TODO List
 
+* [ ] [MQ Config]: validate configurations
+* [ ] [MQ PubSub]: Metadata management enhancement 1:
+    * Topic/Queue/PublishGroup/SubscribeGroup deletion
+    * Topic-Queue/Topic-PublishGroup/Queue-SubscribeGroup unbinding
+* [ ] [MQ PubSub]: publish support simple & wildcard binding key rule
+* [ ] [MQ PubSub]: validate input parameters
+
 ## 3. Usage
+
+Notes:
+
+1. Make sure no message created before removing topic-queue binding. For QoS > 0, if topic-queue binding is removed
+   while still sending messages, some messages may not be able to commit for consuming in the queue whose binding is
+   removed
 
 ## 4. Design
 
 ### 4.1 Metadata(topic/queue/binding) change flow
 
-May support the following operations and status
+##### Flows by using warehouse db.consistent api
 
-* Create/Change
-* Archive
-* Delete(archived before)
-* Migrating(failover/scaleout)
+Write node:
 
-##### Flow
+1. prerequisite check
+2. lock local storage for the following serialized write operation
+3. add new entry in warehouse if the key does not exist
+4. get latest data from warehouse of the key
+5. write data to local storage for API to use
+6. unlock local storage
 
-```text
-1. New metadata item request from mq service/management portal
-2. Allocation service processes the request
-2.1. Collect information - mq service nodes
-2.2. Allocate mq service nodes for the metadata item - based on assignment in request or rules
-2.3. Persist the allocation in order for mq service to retrieve during startup
-2.4. Deliver the allocation to the related mq service nodes to apply the change
-```
+Peer node:
 
-### 4.2 Metadata query flow
-
-```text
-1. (When startup or update) MQ service node sends query request
-2. Query the allocations from persistent storage
-3. MQ service prepares the mechanisms according to the allocations
-```
-
-### 4.3 Metadata holding node change(failover/scaleout/etc.) flow
-
-```text
-TBD - Coordination between source node and target node
-```
-
+1. listen changes from warehouse
+2. lock local storage
+3. write data to local storage for API to use
+4. unlock local storage

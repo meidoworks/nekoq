@@ -45,7 +45,7 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ac
 	for i := 0; i < msgCnt; i++ {
 		msgId, err := ig.Next()
 		if err != nil {
-			return EMPTY_MESSAGE_ID_LIST, err
+			return EmptyMessageIdList, err
 		}
 		messages[i].MsgId = mqapi.MsgId(msgId)
 		msgIds[i] = mqapi.MessageId{
@@ -63,7 +63,7 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ac
 			//m[q.QueueInternalId] = q
 			err := q.PublishMessage(req, ctx)
 			if err != nil {
-				return EMPTY_MESSAGE_ID_LIST, err
+				return EmptyMessageIdList, err
 			}
 		}
 	} else {
@@ -80,7 +80,7 @@ func (topic *Topic) PublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi.Ac
 						m[id] = q
 						err := q.PublishMessage(req, ctx)
 						if err != nil {
-							return EMPTY_MESSAGE_ID_LIST, err
+							return EmptyMessageIdList, err
 						}
 					}
 				}
@@ -103,7 +103,7 @@ func (topic *Topic) PublishMessageWithResponse(req *mqapi.Request, ctx *mqapi.Ct
 	for i := 0; i < msgCnt; i++ {
 		id, err := ig.Next()
 		if err != nil {
-			return EMPTY_MESSAGE_ID_LIST, err
+			return EmptyMessageIdList, err
 		}
 		messages[i].MsgId = mqapi.MsgId(id)
 		msgId := mqapi.MessageId{
@@ -122,7 +122,7 @@ func (topic *Topic) PublishMessageWithResponse(req *mqapi.Request, ctx *mqapi.Ct
 			//m[q.QueueInternalId] = q
 			err := q.PublishMessage(req, ctx)
 			if err != nil {
-				return EMPTY_MESSAGE_ID_LIST, err
+				return EmptyMessageIdList, err
 			}
 		}
 	} else {
@@ -139,7 +139,7 @@ func (topic *Topic) PublishMessageWithResponse(req *mqapi.Request, ctx *mqapi.Ct
 						m[id] = q
 						err := q.PublishMessage(req, ctx)
 						if err != nil {
-							return EMPTY_MESSAGE_ID_LIST, err
+							return EmptyMessageIdList, err
 						}
 					}
 				}
@@ -165,7 +165,7 @@ func (topic *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi
 	for i := 0; i < msgCnt; i++ {
 		id, err := ig.Next()
 		if err != nil {
-			return EMPTY_MESSAGE_ID_LIST, err
+			return EmptyMessageIdList, err
 		}
 		messages[i].MsgId = mqapi.MsgId(id)
 		msgId := mqapi.MessageId{
@@ -184,7 +184,7 @@ func (topic *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi
 			//m[q.QueueInternalId] = q
 			err := q.PrePublishMessage(req, ctx)
 			if err != nil {
-				return EMPTY_MESSAGE_ID_LIST, err
+				return EmptyMessageIdList, err
 			}
 		}
 	} else {
@@ -201,7 +201,7 @@ func (topic *Topic) PrePublishMessage(req *mqapi.Request, ctx *mqapi.Ctx) (mqapi
 						m[id] = q
 						err := q.PrePublishMessage(req, ctx)
 						if err != nil {
-							return EMPTY_MESSAGE_ID_LIST, err
+							return EmptyMessageIdList, err
 						}
 					}
 				}
@@ -225,7 +225,7 @@ func (topic *Topic) CommitMessages(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mq
 			//m[q.QueueInternalId] = q
 			err := q.CommitMessages(req, ctx)
 			if err != nil {
-				return EMPTY_MESSAGE_ID_LIST, err
+				return EmptyMessageIdList, err
 			}
 		}
 	} else {
@@ -241,7 +241,7 @@ func (topic *Topic) CommitMessages(req *mqapi.MessageCommit, ctx *mqapi.Ctx) (mq
 						m[id] = q
 						err := q.CommitMessages(req, ctx)
 						if err != nil {
-							return EMPTY_MESSAGE_ID_LIST, err
+							return EmptyMessageIdList, err
 						}
 					}
 				}

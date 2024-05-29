@@ -9,12 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/meidoworks/nekoq/api"
+	"github.com/go-resty/resty/v2"
+
 	"github.com/meidoworks/nekoq/shared/hardware"
 	"github.com/meidoworks/nekoq/shared/logging"
-	"github.com/meidoworks/nekoq/shared/netaddons/localswitch"
-
-	"github.com/go-resty/resty/v2"
 )
 
 var _NamingClient = logging.NewLogger("NamingClient")
@@ -158,19 +156,6 @@ func (n *NamingClient) Register(serviceName, area string, desc ServiceDesc) erro
 		return nil
 	}
 	return nil
-}
-
-func NewLocalSwitchNamingClient(lswitch *localswitch.LocalSwitch, node string) (*NamingClient, error) {
-	c := localswitch.NewLocalSwitchHttpClient(lswitch, api.LocalSwitchDiscoveryAndCellar)
-	nc := &NamingClient{
-		r:                 resty.NewWithClient(c),
-		local:             true,
-		namingHosts:       []string{"http://localhost"},
-		keepAliveInterval: 5,
-		node:              node,
-	}
-
-	return nc, nil
 }
 
 func NewNamingClient(namingAddrs []string, node string) (*NamingClient, error) {

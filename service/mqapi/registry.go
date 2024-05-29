@@ -9,7 +9,7 @@ var (
 	queueTypeContainer = make(map[string]func() QueueType)
 )
 
-func Register[T func() QueueType](key string, v T) error {
+func Register[T any](key string, v T) error {
 	switch vv := (interface{})(v).(type) {
 	case func() QueueType:
 		_, ok := queueTypeContainer[key]
@@ -27,7 +27,7 @@ func Register[T func() QueueType](key string, v T) error {
 func GetQueueTypeContainer(key string) (func() QueueType, error) {
 	v, ok := queueTypeContainer[key]
 	if !ok {
-		return nil, ErrAddonNotExist
+		return nil, ErrQueueStoreUnknown
 	} else {
 		return v, nil
 	}

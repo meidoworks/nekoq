@@ -2,6 +2,8 @@
 
 ## 1. Concepts
 
+`Need revision`
+
 Naming service consists of the following functions
 
 * Discovery
@@ -26,7 +28,7 @@ Naming service consists of the following functions
 
 ## 2. Features
 
-naming:
+naming general:
 
 * [ ] naming: gracefully shutdown
 * [ ] naming: AuthN and AuthZ
@@ -36,6 +38,8 @@ naming:
     * [ ] Cluster operation
 
 discovery:
+
+`Need revision`
 
 * [X] discovery service
     * [X] Client API services - service lifecycle management
@@ -57,15 +61,17 @@ discovery:
 * [ ] discovery optimization: merge update into batch to save history slot
 * [ ] discovery optimization: Streaming API for large data sync
 * [ ] discovery optimization: Reduce calculation and network transport(especially for fan-out scenario)
-* [ ] discovery security: authentication
 
 warehouse:
 
 * [x] warehouse: service
 * [x] warehouse: system internal data prefix: /_sys/
 * [x] warehouse: area support - add sub area & get area levels
-* [ ] warehouse kv
-    * Operations: Get/Set/Delete/Range/Prefix
+* [x] warehouse kv
+    * [X] Operations: Get/Set/Del/SetIfNotExists
+    * [ ] Range/Prefix
+    * [x] Watch Operation: constant WatchFolder with folder prefix
+    * [ ] Watch Operation: one time Watch
 * [ ] warehouse directory
 * [ ] warehouse storage
 * [ ] warehouse: consistent algorithm - raft/paxos/gossip/consistent hash
@@ -73,6 +79,8 @@ warehouse:
   cluster.
 
 ## 3. Document: discovery
+
+`Need revision`
 
 #### 3.1 Service, Area, NodeId
 

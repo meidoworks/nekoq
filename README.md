@@ -3,15 +3,16 @@ NekoQ
 
 NekoQ
 
-# 1. Features
+# 1. Services
 
 * [X] NumGen
-    * Default: Enabled
-    * Depend on: Discovery
-* [X] Discovery(Naming) & Cellar(Naming)
-    * Default: Enabled
-* [ ] Warehouse(Naming)
+    * Distributed ID generator
+* [X] Naming.Discovery
+    * Service discovery
+* [X] Naming.Warehouse
+    * Distributed data storage
 * [ ] MQ
+* [ ] Scheduling
 
 # 2. TODO List
 
@@ -51,4 +52,5 @@ Note: These are the general items to be implemented. For more details, refer to 
 # 4. Service documents
 
 * [MQ Service](DOC.MQ.md)
-
+* [NumGen](service/numgen/doc.md)
+* [Naming](service/naming/README.md)

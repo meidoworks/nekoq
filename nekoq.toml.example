@@ -1,0 +1,23 @@
+[nekoq]
+node_id = 1
+area = 'default'
+
+[mq]
+cluster_name = 'shared_cluster'
+
+[services.numgen]
+server_real_address = ['localhost']
+port = 9310
+
+[services.naming]
+server_real_address = ['localhost']
+
+[services.naming.external.etcd]
+endpoints = ['localhost:2379']
+
+[services.naming.discovery]
+port = 9312
+peers = []
+
+[services.naming.warehouse]
+port = 9311

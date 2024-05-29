@@ -3,6 +3,7 @@ package inproc
 import (
 	"errors"
 
+	"github.com/meidoworks/nekoq/api"
 	"github.com/meidoworks/nekoq/shared/idgen"
 )
 
@@ -14,6 +15,13 @@ var ErrAreaFormatInvalid = errors.New("invalid area format")
 type Warehouse interface {
 	AreaLevel(area string) ([]string, error)
 	PutArea(parentArea, area string) error
+
+	Get(key string) ([]byte, error)
+	Set(key string, value []byte) error
+	SetIfNotExists(key string, value []byte) error
+	Del(key string) error
+
+	WatchFolder(folder string) (<-chan api.WatchEvent, func(), error)
 }
 
 var WarehouseInst Warehouse
