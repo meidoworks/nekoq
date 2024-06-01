@@ -8,7 +8,9 @@ var _defaultConfiguration = struct {
 	} `toml:"nekoq"`
 
 	MQ struct {
-		ClusterName string `toml:"cluster_name"`
+		ClusterName       string   `toml:"cluster_name"`
+		ServerRealAddress []string `toml:"server_real_address"`
+		Port              int      `toml:"port"`
 	} `toml:"mq"`
 
 	Services struct {

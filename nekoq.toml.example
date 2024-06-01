@@ -4,6 +4,8 @@ area = 'default'
 
 [mq]
 cluster_name = 'shared_cluster'
+server_real_address = ['localhost']
+port = 9321
 
 [services.numgen]
 server_real_address = ['localhost']

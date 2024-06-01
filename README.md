@@ -3,6 +3,14 @@ NekoQ
 
 NekoQ
 
+# 0. Introduction
+
+NekoQ is a message queue providing modern features for building flexible scaled distributed services.
+
+The target of NekoQ is to become the general central dispatcher, coordinator with features including and beyond MQ.
+
+Also keep as simple as possible to reduce the running and operation cost.
+
 # 1. Services
 
 * [X] NumGen
